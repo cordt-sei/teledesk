@@ -1,0 +1,28 @@
+{
+  "name": "teledesk",
+  "version": "1.0.0",
+  "description": "A Telegram bot that forwards messages to a Slack channel",
+  "main": "bot.js",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
+    "test": "node test.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "build": "echo 'No build step required'",
+    "deploy": "pm2 start bot.js --name teledesk"
+  },
+  "dependencies": {
+    "telegraf": "^4.12.2",
+    "axios": "^1.8.2",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.1.0",
+    "pm2": "^5.3.0"
+  }
+}

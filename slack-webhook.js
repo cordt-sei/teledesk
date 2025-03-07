@@ -184,9 +184,9 @@ app.post('/slack/interactions', async (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 3030;
 app.listen(PORT, () => {
-    console.log(`🚀 Slack webhook handler listening on port ${PORT}`);
-    console.log(`📡 Test URL: http://localhost:${PORT}/test`);
-    console.log(`🔗 Interactions URL: http://localhost:${PORT}/slack/interactions`);
+    console.log(`Slack webhook handler listening on port ${PORT}`);
+    console.log(`Test URL: http://localhost:${PORT}/test`);
+    console.log(`Interactions URL: http://localhost:${PORT}/slack/interactions`);
 });
 
 export { app };

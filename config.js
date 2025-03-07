@@ -13,7 +13,8 @@ export default {
     SLACK_CHANNEL_ID: process.env.SLACK_CHANNEL_ID,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     SLACK_API_TOKEN: process.env.SLACK_API_TOKEN,
-    SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL, // Keeping for backward compatibility
+    SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL, // Keeping for potential later use
+    SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
     ZENDESK_API_URL: process.env.ZENDESK_API_URL,
     ZENDESK_EMAIL: process.env.ZENDESK_EMAIL,
     ZENDESK_API_TOKEN: process.env.ZENDESK_API_TOKEN,

@@ -6,7 +6,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "start": "node bot.js",
+    "start": "bash startup.sh",
     "dev": "nodemon bot.js",
     "webhook": "node slack-webhook.js",
     "dev-webhook": "nodemon slack-webhook.js",

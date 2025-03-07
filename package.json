@@ -10,11 +10,8 @@
     "dev": "nodemon bot.js",
     "webhook": "node slack-webhook.js",
     "dev-webhook": "nodemon slack-webhook.js",
-    "test": "node test.js",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "build": "echo 'No build step required'",
-    "deploy": "pm2 start ecosystem.config.js"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "telegraf": "^4.12.2",

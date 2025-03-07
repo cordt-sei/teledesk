@@ -17,13 +17,13 @@ export const pendingSlackAcknowledgments = new Map();
 bot.start(async (ctx) => {
   try {
     await ctx.reply(
-      "Welcome to the support bot! 👋\n\n" +
-      "To create a support ticket, simply send me a message describing your issue. " +
+      "Welcome to SEI Helpdesk 👋\n\n" +
+      "Send a brief but detailed description of the issue. " +
       "For the most effective support:\n\n" +
-      "• Be specific about what you're experiencing\n" +
-      "• Include any error messages you see\n" +
-      "• Mention what you've already tried\n" +
-      "• Specify urgency (Low/Medium/High)\n\n" +
+      "• Be specific about what is happening (or not happening), and in what scenario \n" +
+      "• Include any error messages\n" +
+      "• Any solutions you've tried\n" +
+      "• Specify urgency (Low/Medium/High/Incident)\n\n" +
       "Our team will respond as soon as possible. Thank you!"
     );
   } catch (error) {
@@ -102,9 +102,6 @@ bot.on('text', async (ctx) => {
     }
 });
 
-// Slack msg awaiting ack
-const pendingSlackAcknowledgments = new Map();
-
 async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId) {
     const payload = {
         channel: SLACK_CHANNEL_ID,
@@ -171,15 +168,38 @@ async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId)
     }
 }
 
-// Start the bot
-bot.launch().then(() => {
-    console.log(`Bot is ready.. (Environment: ${config.DEPLOY_ENV || 'development'})`);
-}).catch(err => {
-    console.error('Failed to start bot:', err);
-});
+// Start the bot with improved error handling and webhook cleanup
+async function startBot() {
+    try {
+        // Clear any existing webhooks with dropping pending updates
+        console.log('Clearing webhook and pending updates...');
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        
+        // Wait a moment to ensure Telegram registers the change
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Start with specific polling parameters
+        console.log('Starting bot with custom polling parameters...');
+        await bot.launch({
+            polling: {
+                timeout: 10,  // Use a shorter timeout
+                limit: 100,   // Process more updates at once
+                allowedUpdates: ['message', 'callback_query'], // Only get updates we need
+            },
+            dropPendingUpdates: true
+        });
+        
+        console.log(`Bot is ready.. (Environment: ${config.DEPLOY_ENV || 'development'})`);
+    } catch (err) {
+        console.error('Failed to start bot:', err);
+    }
+}
+
+// Start the bot with our custom method
+startBot();
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-export { bot, pendingSlackAcknowledgments };
+export { bot };

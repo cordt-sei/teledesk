@@ -1,6 +1,6 @@
 # Teledesk
 
-A Telegram bot that forwards messages to Slack and manages support tickets. This project integrates Telegram, Slack, and Zendesk to provide a unified support system.
+A Telegram bot that forwards messages to Slack and manages support tickets via Zendesk.
 
 ## Features
 
@@ -12,146 +12,241 @@ A Telegram bot that forwards messages to Slack and manages support tickets. This
 ## Prerequisites
 
 - Node.js v16+
-- npm
-- A Telegram Bot Token from [@BotFather](https://t.me/BotFather)
-- A Slack workspace with API access
-- A Zendesk account
+- npm/yarn
+- Telegram Bot Token
+- Slack workspace with API access
+- Zendesk account
 
 ## Setup
 
-### Environment Variables
+### 1. Telegram Bot
 
-Copy the example environment file:
+1. Message [@BotFather](https://t.me/BotFather) on Telegram
+2. Send `/newbot`
+3. Follow prompts to create a bot
+4. Save the API token
+5. Set commands (optional): `/setcommands` → select your bot → paste:
 
-```bash
-cp .env.example .env
-```
-
-And fill in your values:
-
-- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from BotFather
-- `SLACK_CHANNEL_ID`: ID of the Slack channel where messages will be posted
-- `SLACK_API_TOKEN`: Bot User OAuth Token from your Slack app
-- `SLACK_SIGNING_SECRET`: Signing Secret from your Slack app
-- `ZENDESK_API_URL`: Your Zendesk API URL (usually https://yourdomain.zendesk.com/api/v2)
-- `ZENDESK_EMAIL`: Your Zendesk admin email
-- `ZENDESK_API_TOKEN`: Your Zendesk API token
-- `DEPLOY_ENV`: Environment (`development` or `production`)
-- `PORT`: Port for the webhook server (default: 3000)
-
-### Telegram Setup
-
-1. Create a new bot via [@BotFather](https://t.me/BotFather)
-2. Get the bot token and add it to your `.env` file
-3. Set up commands for your bot (optional):
-   ```
+   ```sh
    start - Start using the support bot
    help - Get help with using the bot
    ```
 
-### Slack App Setup
+### 2. Slack App
 
-1. Go to [Slack API Dashboard](https://api.slack.com/apps) and create a new app
-2. Under "OAuth & Permissions", add the following bot token scopes:
+1. Go to [Slack API Dashboard](https://api.slack.com/apps)
+2. Click "Create New App" → "From scratch"
+3. Name your app and select your workspace
+4. Under "OAuth & Permissions" → "Scopes" → add Bot Token Scopes:
    - `chat:write`
    - `channels:read`
    - `chat:write.public`
-3. Install the app to your workspace
-4. Copy the "Bot User OAuth Token" to your `.env` as `SLACK_API_TOKEN`
-5. Under "Basic Information", copy the "Signing Secret" to your `.env` as `SLACK_SIGNING_SECRET`
-6. Under "Interactivity & Shortcuts":
+5. Install the app to your workspace
+6. Copy the "Bot User OAuth Token"
+7. Under "Basic Information" → copy the "Signing Secret"
+8. Under "Interactivity & Shortcuts":
    - Turn on Interactivity
-   - Set the Request URL to `http://basementnodes.ca:3030/slack/interactions` (or your server URL)
+   - Set Request URL: `http://your-domain:3030/slack/interactions`
 
-### Zendesk Setup
+### 3. Zendesk Setup
 
-1. In Zendesk Admin Center, go to "Apps and Integrations" → "APIs" → "Zendesk API"
-2. Create a new API token
-3. Add your admin email and the token to your `.env` file
+1. Go to Admin Center → Apps and Integrations → APIs → Zendesk API
+2. Create an API token
+3. Note your admin email and token
 
-## Installation
+### 4. Project Setup
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yourusername/teledesk.git
+   cd teledesk
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   yarn install
+   ```
+
+3. Create `.env` file:
+
+   ```ini
+   TELEGRAM_BOT_TOKEN=your_telegram_token
+   SLACK_CHANNEL_ID=your_slack_channel_id
+   SLACK_API_TOKEN=xoxb-your_slack_api_token
+   SLACK_SIGNING_SECRET=your_slack_signing_secret
+   ZENDESK_API_URL=https://yourdomain.zendesk.com/api/v2
+   ZENDESK_EMAIL=your_admin_email@example.com
+   ZENDESK_API_TOKEN=your_zendesk_token
+   DEPLOY_ENV=development
+   PORT=3030
+   ```
+
+4. Configure `config.js`:
+   - Add team member Telegram user IDs to `TEAM_MEMBERS` set
+
+## Running Locally
+
+### Development Mode
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/teledesk.git
-cd teledesk
+# Start bot and webhook server separately
+yarn dev
+yarn dev-webhook
 
-# Install dependencies
-npm install
-
-# Run the bot (development)
-npm run dev
-
-# Run the webhook server (development)
-npm run dev-webhook
-
-# Deploy with PM2
-npm run deploy
+# Or use start script
+./start-services.sh
 ```
 
-## Testing the Webhook
+### Production Mode
 
-To test if your webhook server is properly configured:
+```bash
+# Install PM2 globally
+yarn global add pm2
 
-1. Visit http://basementnodes.ca:3030/test in your browser
-   - You should see "Webhook server is running!"
+# Start with PM2
+pm2 start ecosystem.config.cjs
+```
 
-2. Forward a message from Telegram to your bot (as a team member)
-   - The message should appear in Slack with an "Acknowledge" button
-   - When clicked, your Telegram user should receive an acknowledgment message
+## Testing
 
-## Local Development with ngrok
+1. Verify webhook server: `curl http://your-domain:3030/test`
+2. Forward a message from a team member to the bot
+3. Check that the message appears in Slack with an "Acknowledge" button
+4. Send a direct message to the bot to test ticket creation
 
-For local development without a public server:
+## Troubleshooting
 
-1. Install ngrok:
+### Bot Conflict Error
+
+If you get `409: Conflict: terminated by other getUpdates request`:
+
+```bash
+# Clear webhooks
+node clear-webhook.js
+
+# Kill all bot instances
+pkill -f "node.*bot.js"
+```
+
+### Port or Webhook Issues
+
+1. Check firewall allows port 3030
+2. For AWS: verify security group inbound rules
+3. Ensure SLACK_SIGNING_SECRET is correctly set
+
+## AWS Deployment
+
+### EC2 Setup
+
+1. Launch EC2 instance (t2.micro is sufficient)
+2. Configure security group:
+   - Allow SSH (port 22)
+   - Allow custom TCP port 3030
+
+### Installation on EC2
+
+```bash
+# Update and install Node.js
+sudo apt update
+sudo apt install -y curl
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Install Yarn
+npm install -g yarn
+
+# Install PM2
+yarn global add pm2
+
+# Clone and setup
+git clone https://github.com/yourusername/teledesk.git
+cd teledesk
+yarn install
+cp .env.example .env
+nano .env  # Edit with your credentials
+```
+
+### Running on EC2
+
+```bash
+# Start services
+pm2 start ecosystem.config.cjs
+
+# Set to auto-start on reboot
+pm2 startup
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ubuntu --hp /home/ubuntu
+pm2 save
+
+# Monitor logs
+pm2 logs
+```
+
+### Domain Setup (Optional)
+
+1. Point your domain to EC2 instance IP
+2. Install Nginx:
+
    ```bash
-   npm install -g ngrok
+   sudo apt install -y nginx
    ```
 
-2. Start your webhook server:
+3. Create Nginx configuration:
+
    ```bash
-   npm run dev-webhook
+   sudo nano /etc/nginx/sites-available/teledesk
    ```
 
-3. Create a tunnel to your local server:
-   ```bash
-   ngrok http 3000
+   Add:
+
+   ```ini
+   server {
+       listen 80;
+       server_name your-domain.com;
+
+       location /slack/interactions {
+           proxy_pass http://localhost:3030;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
    ```
 
-4. Use the HTTPS URL from ngrok for your Slack Interactivity Request URL
+4. Enable the site:
+
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/teledesk /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl restart nginx
+   ```
+
+## File Structure
+
+- `bot.js` - Telegram bot logic
+- `slack-webhook.js` - Handles Slack interactions
+- `zendesk.js` - Support ticket management
+- `config.js` - Configuration and team member list
+- `ecosystem.config.cjs` - PM2 configuration
 
 ## Usage
 
 ### Team Member Workflow
 
-1. Forward a message from any Telegram chat to the bot
-2. The bot will ask for the source if it cannot determine it
-3. The message will be posted to Slack with an "Acknowledge" button
-4. When a team member clicks the button, the original sender will be notified
+1. Forward a message from any chat to the bot
+2. If source isn't detected, bot asks for origin
+3. Message appears in Slack with acknowledgment button
+4. When clicked, bot notifies the original forwarder
 
-### User Support Workflow
+### Support Workflow
 
-1. Users send messages directly to the bot
-2. Each message creates a new support ticket in Zendesk
-3. Follow-up messages are added as comments to the existing ticket
-4. New tickets are posted to Slack with a link to view in Zendesk
-
-## Deployment
-
-For production deployment, use PM2:
-
-```bash
-npm run deploy
-```
-
-This will start both the bot and webhook server as defined in `ecosystem.config.js`.
-
-## Troubleshooting
-
-- **Slack button doesn't work**: Check that your server is accessible and the Slack Interactivity Request URL is correct
-- **Webhook validation fails**: Ensure your `SLACK_SIGNING_SECRET` is correctly set
-- **Zendesk tickets aren't created**: Verify your Zendesk API credentials
+1. Users message the bot directly
+2. First message creates a Zendesk ticket
+3. Follow-up messages add comments to the ticket
+4. New tickets generate Slack notifications with Zendesk link
 
 ## License
 

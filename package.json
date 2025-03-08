@@ -10,7 +10,6 @@
     "deploy": "npm run build && cdk deploy --all",
     "destroy": "cdk destroy --all --force",
     "synth": "cdk synth",
-    "preinstall": "npm install -g aws-cdk",
     "cdk": "cdk",
     "test": "echo \"No tests implemented yet\""
   },
@@ -19,7 +18,7 @@
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@types/node": "^22.13.10",
-    "aws-cdk": "2.1003.0",
+    "aws-cdk": "^2.1003.0",
     "aws-cdk-lib": "2.182.0",
     "constructs": "^10.4.2",
     "rollup": "^4.35.0",

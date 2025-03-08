@@ -105,7 +105,7 @@ npm run deploy
 
 ## Project Structure
 
-```
+```ini
 ├── bin/
 │   └── cdk.ts                  # CDK app entry point
 ├── lambda/

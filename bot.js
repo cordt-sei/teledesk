@@ -4,16 +4,14 @@ import config from './config.js';
 import { handleSupportTicket } from './zendesk.js';
 
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
-
 const SLACK_API_TOKEN = config.SLACK_API_TOKEN;
 const SLACK_CHANNEL_ID = config.SLACK_CHANNEL_ID;
 
-// pending forwards temp storage
+// Storage for pending operations
 const pendingForwards = new Map(); 
-
-// messages with pending acknowledgements
 export const pendingSlackAcknowledgments = new Map();
 
+// Bot commands
 bot.start(async (ctx) => {
   try {
     await ctx.reply(
@@ -31,6 +29,7 @@ bot.start(async (ctx) => {
   }
 });
 
+// Message handler
 bot.on('message', async (ctx) => {
     try {
         const msg = ctx.message;
@@ -40,18 +39,26 @@ bot.on('message', async (ctx) => {
         const messageId = msg.message_id;
         const chatId = msg.chat.id;
         
-        // if forwarded message from SEI team members
+
+        console.log('User ID:', userId, 'Type:', typeof userId);
+        console.log('Is in team members:', config.TEAM_MEMBERS.has(userId));
+        console.log('Team members contains:', [...config.TEAM_MEMBERS]);
+
+        // Handle forwarded messages from team members
         const isTeamMember = config.TEAM_MEMBERS.has(userId);
         const isForwarded = msg.forward_from || msg.forward_from_chat;
+                
+        console.log('Is forwarded message:', !!isForwarded);
+        console.log('Message forward properties:', {
+        forward_from: msg.forward_from,
+        forward_from_chat: msg.forward_from_chat
+        });
         
-        // prompt for additional info and relay to slack channel
         if (isTeamMember && isForwarded) {
             let forwardedFrom = msg.forward_from_chat ? msg.forward_from_chat.title : null;
             
             if (!forwardedFrom) {
                 await ctx.reply("🔹 I couldn't determine the original group. Please enter the name of the group this message was forwarded from:");
-                
-                // Store message data for later reference
                 pendingForwards.set(userId, { originalMessage, forwarder, messageId, chatId });
             } else {
                 await sendToSlack(originalMessage, forwarder, forwardedFrom, messageId, chatId);
@@ -60,9 +67,8 @@ bot.on('message', async (ctx) => {
             return;
         }
         
-        // all other cases are treated as support ticket
+        // All other messages treated as support tickets
         await handleSupportTicket(ctx);
-        
     } catch (error) {
         console.error('Error processing message:', error);
         try {
@@ -73,25 +79,24 @@ bot.on('message', async (ctx) => {
     }
 });
 
+// Text message handler (handles replies to bot prompts)
 bot.on('text', async (ctx) => {
     try {
         const userId = ctx.message.from.id;
         
-        // check if response to pending forward
+        // Handle responses to pending forward requests
         if (pendingForwards.has(userId)) {
             const { originalMessage, forwarder, messageId, chatId } = pendingForwards.get(userId);
             const forwardedFrom = ctx.message.text;
 
             await sendToSlack(originalMessage, forwarder, forwardedFrom, messageId, chatId);
             await ctx.reply("✅ Message forwarded to Slack!");
-
             pendingForwards.delete(userId);
             return;
         }
         
-        // Otherwise, handle as support message
+        // Default to support ticket
         await handleSupportTicket(ctx);
-        
     } catch (error) {
         console.error('Error processing text message:', error);
         try {
@@ -102,6 +107,7 @@ bot.on('text', async (ctx) => {
     }
 });
 
+// Send message to Slack with acknowledgment button
 async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId) {
     const payload = {
         channel: SLACK_CHANNEL_ID,
@@ -133,7 +139,6 @@ async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId)
     };
 
     try {
-        // send to Slack
         const response = await axios.post('https://slack.com/api/chat.postMessage', payload, {
             headers: {
                 'Content-Type': 'application/json',
@@ -147,7 +152,7 @@ async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId)
         
         const messageTs = response.data.ts;
         
-        // store pending ack with tg chat info
+        // Store pending acknowledgment info
         pendingSlackAcknowledgments.set(messageTs, {
             telegramChatId: chatId,
             telegramMessageId: messageId,
@@ -155,7 +160,6 @@ async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId)
             timestamp: Date.now()
         });
         
-        // indicate message is pending ack
         await bot.telegram.sendMessage(
             chatId,
             "✅ Message forwarded to Slack - status will update upon acknowledgment from the team."
@@ -168,23 +172,25 @@ async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId)
     }
 }
 
-// Start the bot with improved error handling and webhook cleanup
+// Helper function for webhook server to send acknowledgments
+export function sendTelegramAcknowledgment(chatId, message) {
+    return bot.telegram.sendMessage(chatId, message);
+}
+
+// Bot initialization
 async function startBot() {
     try {
-        // Clear any existing webhooks with dropping pending updates
         console.log('Clearing webhook and pending updates...');
         await bot.telegram.deleteWebhook({ drop_pending_updates: true });
         
-        // Wait a moment to ensure Telegram registers the change
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Start with specific polling parameters
         console.log('Starting bot with custom polling parameters...');
         await bot.launch({
             polling: {
-                timeout: 10,  // Use a shorter timeout
-                limit: 100,   // Process more updates at once
-                allowedUpdates: ['message', 'callback_query'], // Only get updates we need
+                timeout: 10,
+                limit: 100,
+                allowedUpdates: ['message', 'callback_query'],
             },
             dropPendingUpdates: true
         });
@@ -195,11 +201,19 @@ async function startBot() {
     }
 }
 
-// Start the bot with our custom method
-startBot();
-
-// Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-export { bot };
+// Only start the bot when explicitly enabled
+if (process.env.BOT_PROCESS === 'true') {
+    startBot();
+  }
+  
+  // Graceful shutdown
+  process.once('SIGINT', () => {
+    if (process.env.BOT_PROCESS === 'true') {
+      bot.stop('SIGINT');
+    }
+  });
+  process.once('SIGTERM', () => {
+    if (process.env.BOT_PROCESS === 'true') {
+      bot.stop('SIGTERM');
+    }
+  });

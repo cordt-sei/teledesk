@@ -102,28 +102,28 @@ async function createZendeskTicket(description, username, userId, severity = 'No
       }
       
       const response = await axios.post(
-          `${config.ZENDESK_API_URL}/tickets.json`,
-          {
-              ticket: {
-                  subject: severity ? `[${severity}] Support Request from ${username}` : `Support Request from ${username}`,
-                  comment: {
-                      body: description
-                  },
-                  requester: {
-                      name: username,
-                      email: `telegram.${userId}@example.com` // You might want to handle this differently
-                  },
-                  priority: severity ? severity.toLowerCase() : 'normal',
-                  tags: ["telegram", severityTag]
-              }
-          },
-          {
-              auth: {
-                  username: config.ZENDESK_EMAIL,
-                  password: config.ZENDESK_API_TOKEN
-              }
-          }
-      );
+        `${config.ZENDESK_API_URL}/tickets.json`,
+        {
+            ticket: {
+                subject: severity ? `[${severity}] Support Request from ${username}` : `Support Request from ${username}`,
+                comment: {
+                    body: description
+                },
+                requester: {
+                    name: username,
+                    email: `telegram.${userId}@example.com`
+                },
+                priority: severity ? severity.toLowerCase() : 'normal',
+                tags: ["telegram", severityTag]
+            }
+        },
+        {
+            auth: {
+                username: `${config.ZENDESK_EMAIL}/token`,
+                password: config.ZENDESK_API_TOKEN
+            }
+        }
+    );
       
       console.log(`Zendesk ticket created: ${response.data.ticket.id}`);
       return response.data.ticket.id;
@@ -201,13 +201,20 @@ async function notifySlackOfNewTicket(ticketId, username, description, severity)
     };
 
     try {
-        await axios.post('https://slack.com/api/chat.postMessage', payload, {
+        const result = await axios.post('https://slack.com/api/chat.postMessage', payload, {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
             }
         });
+        
+        console.log('Slack notification result:', result.data);
+        
+        if (!result.data.ok) {
+            console.error('Slack API error:', result.data.error);
+        }
     } catch (error) {
         console.error('Error notifying Slack of new ticket:', error.response?.data || error.message);
+        console.error('Error details:', error);
     }
 }

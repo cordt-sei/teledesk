@@ -3,8 +3,9 @@ import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import axios from 'axios';
 import config from './config.js';
-import { bot, pendingSlackAcknowledgments } from './bot.js';
+import { pendingSlackAcknowledgments, sendTelegramAcknowledgment } from './bot.js';
 
+const PORT = process.env.PORT || 3030;
 const app = express();
 
 // Add a simple test endpoint
@@ -127,7 +128,7 @@ app.post('/slack/interactions', async (req, res) => {
                     
                     // Send acknowledgment back to Telegram
                     try {
-                        await bot.telegram.sendMessage(
+                        await sendTelegramAcknowledgment(
                             pendingInfo.telegramChatId,
                             `✅ Your forwarded message has been acknowledged by ${userName} in Slack.`
                         );
@@ -182,8 +183,7 @@ app.post('/slack/interactions', async (req, res) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 3030;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Slack webhook handler listening on port ${PORT}`);
     console.log(`Test URL: http://localhost:${PORT}/test`);
     console.log(`Interactions URL: http://localhost:${PORT}/slack/interactions`);

@@ -150,7 +150,7 @@ async function addCommentToTicket(ticketId, comment, username) {
             },
             {
                 auth: {
-                    username: config.ZENDESK_EMAIL,
+                    username: `${config.ZENDESK_EMAIL}/token`,
                     password: config.ZENDESK_API_TOKEN
                 }
             }
@@ -163,55 +163,79 @@ async function addCommentToTicket(ticketId, comment, username) {
 
 // Notify Slack about a new support ticket
 async function notifySlackOfNewTicket(ticketId, username, description, severity) {
-    // Choose emoji based on severity
-    let priorityEmoji = '🟢'; // Low/Normal
-    let priorityText = severity || 'Normal';
-    
-    if (severity === 'Medium') {
-        priorityEmoji = '🟠';
-    } else if (severity === 'High') {
-        priorityEmoji = '🔴';
-    }
-    
-    const payload = {
-        channel: config.SLACK_CHANNEL_ID,
-        text: `${priorityEmoji} *New ${priorityText} Support Ticket #${ticketId}*\n\n👤 *From:* ${username}\n📝 *Message:* ${description}`,
-        blocks: [
-            {
-                type: "section",
-                text: {
-                    type: "mrkdwn",
-                    text: `${priorityEmoji} *New ${priorityText} Support Ticket #${ticketId}*\n\n👤 *From:* ${username}\n📝 *Message:* ${description}`
-                }
-            },
-            {
-                type: "actions",
-                elements: [
-                    {
-                        type: "button",
-                        text: {
-                            type: "plain_text",
-                            text: "View in Zendesk"
-                        },
-                        url: `${config.ZENDESK_API_URL.replace('/api/v2', '')}/agent/tickets/${ticketId}`
-                    }
-                ]
-            }
-        ]
-    };
-
     try {
-        const result = await axios.post('https://slack.com/api/chat.postMessage', payload, {
+        // Validate the Slack channel and token before sending
+        if (!config.SLACK_CHANNEL_ID) {
+            console.error('Slack channel ID not configured. Skipping notification.');
+            return;
+        }
+        
+        if (!config.SLACK_API_TOKEN) {
+            console.error('Slack API token not configured. Skipping notification.');
+            return;
+        }
+        
+        // Choose emoji based on severity
+        let priorityEmoji = '🟢'; // Low/Normal
+        let priorityText = severity || 'Normal';
+        
+        if (severity === 'Medium') {
+            priorityEmoji = '🟠';
+        } else if (severity === 'High') {
+            priorityEmoji = '🔴';
+        }
+        
+        // Truncate long descriptions for Slack message
+        const truncatedDescription = description.length > 500 
+            ? description.substring(0, 500) + '...' 
+            : description;
+        
+        const payload = {
+            channel: config.SLACK_CHANNEL_ID,
+            text: `${priorityEmoji} *New ${priorityText} Support Ticket #${ticketId}*\n\n👤 *From:* ${username}\n📝 *Message:* ${truncatedDescription}`,
+            blocks: [
+                {
+                    type: "section",
+                    text: {
+                        type: "mrkdwn",
+                        text: `${priorityEmoji} *New ${priorityText} Support Ticket #${ticketId}*\n\n👤 *From:* ${username}\n📝 *Message:* ${truncatedDescription}`
+                    }
+                },
+                {
+                    type: "actions",
+                    elements: [
+                        {
+                            type: "button",
+                            text: {
+                                type: "plain_text",
+                                text: "View in Zendesk"
+                            },
+                            url: `${config.ZENDESK_API_URL.replace('/api/v2', '')}/agent/tickets/${ticketId}`
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Use proper headers to avoid character set warnings
+        const response = await axios.post('https://slack.com/api/chat.postMessage', payload, {
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
                 'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
             }
         });
         
-        console.log('Slack notification result:', result.data);
+        console.log('Slack notification result:', response.data);
         
-        if (!result.data.ok) {
-            console.error('Slack API error:', result.data.error);
+        if (!response.data.ok) {
+            console.error('Slack API error:', response.data.error);
+            
+            // Handle specific error cases
+            if (response.data.error === 'not_allowed_token_type') {
+                console.error('The Slack token being used appears to be an incorrect type. Please use a bot token starting with xoxb-');
+            } else if (response.data.error === 'channel_not_found') {
+                console.error(`Channel ID ${config.SLACK_CHANNEL_ID} not found. Please check your channel ID.`);
+            }
         }
     } catch (error) {
         console.error('Error notifying Slack of new ticket:', error.response?.data || error.message);

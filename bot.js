@@ -29,7 +29,7 @@ bot.start(async (ctx) => {
   }
 });
 
-// Message handler
+// incoming message handler
 bot.on('message', async (ctx) => {
     try {
         const msg = ctx.message;
@@ -39,26 +39,47 @@ bot.on('message', async (ctx) => {
         const messageId = msg.message_id;
         const chatId = msg.chat.id;
         
-
         console.log('User ID:', userId, 'Type:', typeof userId);
         console.log('Is in team members:', config.TEAM_MEMBERS.has(userId));
         console.log('Team members contains:', [...config.TEAM_MEMBERS]);
 
-        // Handle forwarded messages from team members
+        // check if user is team member
         const isTeamMember = config.TEAM_MEMBERS.has(userId);
-        const isForwarded = msg.forward_from || msg.forward_from_chat;
-                
+        
+        // inspect all possible forwarded message fields
+        const isForwarded = msg.forward_from || 
+                          msg.forward_from_chat || 
+                          msg.forward_sender_name || 
+                          msg.forward_date;
+        
         console.log('Is forwarded message:', !!isForwarded);
-        console.log('Message forward properties:', {
-        forward_from: msg.forward_from,
-        forward_from_chat: msg.forward_from_chat
+        console.log('Message forward properties:', { 
+            forward_from: msg.forward_from,
+            forward_from_chat: msg.forward_from_chat,
+            forward_sender_name: msg.forward_sender_name,
+            forward_date: msg.forward_date
         });
         
+        // handle team member forwarded messages
         if (isTeamMember && isForwarded) {
-            let forwardedFrom = msg.forward_from_chat ? msg.forward_from_chat.title : null;
+            // Attempt to determine the original source or chat
+            let forwardedFrom = null;
+            
+            if (msg.forward_from_chat && msg.forward_from_chat.title) {
+                // Group or channel message
+                forwardedFrom = msg.forward_from_chat.title;
+            } else if (msg.forward_from) {
+                // Individual user message
+                forwardedFrom = msg.forward_from.username || 
+                              msg.forward_from.first_name || 
+                              'Private User';
+            } else if (msg.forward_sender_name) {
+                // Private user that doesn't share their info
+                forwardedFrom = msg.forward_sender_name;
+            }
             
             if (!forwardedFrom) {
-                await ctx.reply("🔹 I couldn't determine the original group. Please enter the name of the group this message was forwarded from:");
+                await ctx.reply("🔹 Please indicate the group, or the team/user this message is from:");
                 pendingForwards.set(userId, { originalMessage, forwarder, messageId, chatId });
             } else {
                 await sendToSlack(originalMessage, forwarder, forwardedFrom, messageId, chatId);
@@ -204,16 +225,16 @@ async function startBot() {
 // Only start the bot when explicitly enabled
 if (process.env.BOT_PROCESS === 'true') {
     startBot();
-  }
+}
   
-  // Graceful shutdown
-  process.once('SIGINT', () => {
+// Graceful shutdown
+process.once('SIGINT', () => {
     if (process.env.BOT_PROCESS === 'true') {
-      bot.stop('SIGINT');
+        bot.stop('SIGINT');
     }
-  });
-  process.once('SIGTERM', () => {
+});
+process.once('SIGTERM', () => {
     if (process.env.BOT_PROCESS === 'true') {
-      bot.stop('SIGTERM');
+        bot.stop('SIGTERM');
     }
-  });
+});

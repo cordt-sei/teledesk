@@ -1,3 +1,4 @@
+// ecosystem.config.cjs
 module.exports = {
   apps: [
     {
@@ -21,14 +22,15 @@ module.exports = {
     },
     {
       name: 'slack-webhook',
-      script: 'slack-webhook.js',
+      script: 'modules/slackWebhook.js',  // Updated path!
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '200M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3030
+        PORT: 3030,
+        WEBHOOK_PROCESS: 'true'  // Added to match our code
       },
       dependency: ['telegram-bot']
     }

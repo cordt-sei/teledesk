@@ -1,0 +1,57 @@
+[2025-03-22T18:09:23.966Z] [INFO] [bot] Starting bot process
+[2025-03-22T18:09:23.967Z] [INFO] [bot] Clearing webhook and pending updates...
+[2025-03-22T18:09:24.083Z] [INFO] [slackWebhook] Starting webhook server
+[2025-03-22T18:09:24.128Z] [INFO] [slackWebhook] Slack webhook handler listening on port 3030
+  {
+  "testUrl": "http://localhost:3030/test",
+  "interactionsUrl": "http://localhost:3030/slack/interactions"
+}
+[2025-03-22T18:09:27.675Z] [INFO] [bot] Starting bot with custom polling parameters...
+[2025-03-22T18:09:52.387Z] [INFO] [slackTester] Starting Slack acknowledgment test...
+[2025-03-22T18:09:52.389Z] [INFO] [slackTester] Creating a test message in Slack...
+[2025-03-22T18:09:52.738Z] [INFO] [slackTester] Test message created with timestamp: 1742666992.650359
+[2025-03-22T18:09:52.738Z] [INFO] [slackTester] Simulating button click by sending webhook...
+[2025-03-22T18:09:52.751Z] [ERROR] [slackWebhook] Express error handler caught error
+  Error: stream is not readable
+  Stack: InternalServerError: stream is not readable
+    at readStream (/home/cordt/repos/teledesk/node_modules/raw-body/index.js:185:17)
+    at getRawBody (/home/cordt/repos/teledesk/node_modules/raw-body/index.js:116:12)
+    at read (/home/cordt/repos/teledesk/node_modules/body-parser/lib/read.js:79:3)
+    at urlencodedParser (/home/cordt/repos/teledesk/node_modules/body-parser/lib/types/urlencoded.js:119:5)
+    at Layer.handle [as handle_request] (/home/cordt/repos/teledesk/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:328:13)
+    at /home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:346:12)
+    at next (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:280:10)
+    at IncomingMessage.<anonymous> (file:///home/cordt/repos/teledesk/modules/slackWebhook.js:34:9)
+[2025-03-22T18:09:56.103Z] [ERROR] [slackWebhook] Express error handler caught error
+  Error: stream is not readable
+  Stack: InternalServerError: stream is not readable
+    at readStream (/home/cordt/repos/teledesk/node_modules/raw-body/index.js:185:17)
+    at getRawBody (/home/cordt/repos/teledesk/node_modules/raw-body/index.js:116:12)
+    at read (/home/cordt/repos/teledesk/node_modules/body-parser/lib/read.js:79:3)
+    at urlencodedParser (/home/cordt/repos/teledesk/node_modules/body-parser/lib/types/urlencoded.js:119:5)
+    at Layer.handle [as handle_request] (/home/cordt/repos/teledesk/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:328:13)
+    at /home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:346:12)
+    at next (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:280:10)
+    at IncomingMessage.<anonymous> (file:///home/cordt/repos/teledesk/modules/slackWebhook.js:34:9)
+[2025-03-22T18:11:43.373Z] [INFO] [bot] Starting bot process
+[2025-03-22T18:11:43.375Z] [INFO] [bot] Clearing webhook and pending updates...
+[2025-03-22T18:11:43.442Z] [INFO] [slackWebhook] Starting webhook server
+[2025-03-22T18:11:43.453Z] [INFO] [slackWebhook] Slack webhook handler listening on port 3030
+  {
+  "testUrl": "http://localhost:3030/test",
+  "interactionsUrl": "http://localhost:3030/slack/interactions"
+}
+[2025-03-22T18:11:46.963Z] [INFO] [bot] Starting bot with custom polling parameters...
+[2025-03-22T18:13:39.258Z] [INFO] [bot] Starting bot process
+[2025-03-22T18:13:39.259Z] [INFO] [bot] Clearing webhook and pending updates...
+[2025-03-22T18:13:39.317Z] [INFO] [slackWebhook] Starting webhook server
+[2025-03-22T18:13:39.327Z] [INFO] [slackWebhook] Slack webhook handler listening on port 3030
+  {
+  "testUrl": "http://localhost:3030/test",
+  "interactionsUrl": "http://localhost:3030/slack/interactions"
+}
+[2025-03-22T18:13:42.829Z] [INFO] [bot] Starting bot with custom polling parameters...

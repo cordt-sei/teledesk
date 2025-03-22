@@ -1,26 +1,33 @@
 {
   "name": "teledesk",
-  "version": "1.0.1",
-  "description": "A Telegram bot that forwards messages to a Slack channel and manages support tickets",
+  "version": "1.0.3",
+  "description": "A Telegram bot that forwards messages to a Slack channel and manages support tickets via Zendesk",
   "main": "bot.js",
   "type": "module",
   "license": "MIT",
   "scripts": {
     "start": "bash startup.sh",
-    "dev": "nodemon bot.js",
-    "webhook": "node slack-webhook.js",
-    "dev-webhook": "nodemon slack-webhook.js",
+    "dev": "cross-env LOG_LEVEL=DEBUG concurrently \"cross-env BOT_PROCESS=true nodemon bot.js\" \"cross-env WEBHOOK_PROCESS=true nodemon modules/slackWebhook.js\"",
+    "dev:bot": "cross-env LOG_LEVEL=DEBUG BOT_PROCESS=true nodemon bot.js",
+    "dev:webhook": "cross-env LOG_LEVEL=DEBUG WEBHOOK_PROCESS=true nodemon modules/slackWebhook.js",
+    "prod": "cross-env LOG_LEVEL=INFO concurrently \"cross-env BOT_PROCESS=true node bot.js\" \"cross-env WEBHOOK_PROCESS=true node modules/slackWebhook.js\"",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "validate": "node tests/validate-config.js",
+    "test:slack": "node tests/test-slack.js",
+    "clear-webhook": "node clear-webhook.js",
+    "logs": "tail -f logs/$(date +%Y-%m-%d).log"
   },
   "dependencies": {
     "axios": "^1.8.2",
     "body-parser": "^1.20.3",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "telegraf": "^4.12.2"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "eslint": "^8.57.0",
     "nodemon": "^3.0.2",
     "pm2": "^5.3.0",

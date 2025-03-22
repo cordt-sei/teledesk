@@ -1,240 +1,151 @@
+// bot.js
 import { Telegraf } from 'telegraf';
-import axios from 'axios';
 import config from './config.js';
-import { handleSupportTicket } from './zendesk.js';
+import {
+  handleStart,
+  handleHelp,
+  handleTicketCommand,
+  handleStatusCommand,
+  handleMessage,
+  handleCallbackQuery
+} from './modules/messageHandlers.js';
+import { pendingSlackAcknowledgments } from './modules/state.js';
+import createLogger from './modules/logger.js';
 
+// Initialize logger
+const logger = createLogger('bot');
+
+// Initialize the bot
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
-const SLACK_API_TOKEN = config.SLACK_API_TOKEN;
-const SLACK_CHANNEL_ID = config.SLACK_CHANNEL_ID;
 
-// Storage for pending operations
-const pendingForwards = new Map(); 
-export const pendingSlackAcknowledgments = new Map();
-
-// Bot commands
-bot.start(async (ctx) => {
-  try {
-    await ctx.reply(
-      "Welcome to SEI Helpdesk 👋\n\n" +
-      "Send a brief but detailed description of the issue. " +
-      "For the most effective support:\n\n" +
-      "• Be specific about what is happening (or not happening), and in what scenario \n" +
-      "• Include any error messages\n" +
-      "• Any solutions you've tried\n" +
-      "• Specify urgency (Low/Medium/High/Incident)\n\n" +
-      "Our team will respond as soon as possible. Thank you!"
-    );
-  } catch (error) {
-    console.error('Error sending welcome message:', error);
-  }
+// Add error handler for bot
+bot.catch((err, ctx) => {
+  logger.error(`Error in bot context: ${err}`, {
+    update: ctx.update,
+    error: err
+  });
 });
 
-// incoming message handler
-bot.on('message', async (ctx) => {
-    try {
-        const msg = ctx.message;
-        const userId = msg.from.id;
-        const forwarder = msg.from.username || msg.from.first_name;
-        const originalMessage = msg.text || '[Non-text message]';
-        const messageId = msg.message_id;
-        const chatId = msg.chat.id;
-        
-        console.log('User ID:', userId, 'Type:', typeof userId);
-        console.log('Is in team members:', config.TEAM_MEMBERS.has(userId));
-        console.log('Team members contains:', [...config.TEAM_MEMBERS]);
-
-        // check if user is team member
-        const isTeamMember = config.TEAM_MEMBERS.has(userId);
-        
-        // inspect all possible forwarded message fields
-        const isForwarded = msg.forward_from || 
-                          msg.forward_from_chat || 
-                          msg.forward_sender_name || 
-                          msg.forward_date;
-        
-        console.log('Is forwarded message:', !!isForwarded);
-        console.log('Message forward properties:', { 
-            forward_from: msg.forward_from,
-            forward_from_chat: msg.forward_from_chat,
-            forward_sender_name: msg.forward_sender_name,
-            forward_date: msg.forward_date
-        });
-        
-        // handle team member forwarded messages
-        if (isTeamMember && isForwarded) {
-            // Attempt to determine the original source or chat
-            let forwardedFrom = null;
-            
-            if (msg.forward_from_chat && msg.forward_from_chat.title) {
-                // Group or channel message
-                forwardedFrom = msg.forward_from_chat.title;
-            } else if (msg.forward_from) {
-                // Individual user message
-                forwardedFrom = msg.forward_from.username || 
-                              msg.forward_from.first_name || 
-                              'Private User';
-            } else if (msg.forward_sender_name) {
-                // Private user that doesn't share their info
-                forwardedFrom = msg.forward_sender_name;
-            }
-            
-            if (!forwardedFrom) {
-                await ctx.reply("🔹 Please indicate the group, or the team/user this message is from:");
-                pendingForwards.set(userId, { originalMessage, forwarder, messageId, chatId });
-            } else {
-                await sendToSlack(originalMessage, forwarder, forwardedFrom, messageId, chatId);
-                await ctx.reply("✅ Message forwarded to Slack!");
-            }
-            return;
-        }
-        
-        // All other messages treated as support tickets
-        await handleSupportTicket(ctx);
-    } catch (error) {
-        console.error('Error processing message:', error);
-        try {
-            await ctx.reply("❌ An error occurred while processing your message.");
-        } catch (replyError) {
-            console.error('Could not send error message:', replyError);
-        }
-    }
+// Register command handlers
+bot.start(ctx => {
+  logger.info('Start command received', { 
+    userId: ctx.from?.id,
+    username: ctx.from?.username || ctx.from?.first_name 
+  });
+  return handleStart(ctx, bot);
 });
 
-// Text message handler (handles replies to bot prompts)
-bot.on('text', async (ctx) => {
-    try {
-        const userId = ctx.message.from.id;
-        
-        // Handle responses to pending forward requests
-        if (pendingForwards.has(userId)) {
-            const { originalMessage, forwarder, messageId, chatId } = pendingForwards.get(userId);
-            const forwardedFrom = ctx.message.text;
-
-            await sendToSlack(originalMessage, forwarder, forwardedFrom, messageId, chatId);
-            await ctx.reply("✅ Message forwarded to Slack!");
-            pendingForwards.delete(userId);
-            return;
-        }
-        
-        // Default to support ticket
-        await handleSupportTicket(ctx);
-    } catch (error) {
-        console.error('Error processing text message:', error);
-        try {
-            await ctx.reply("❌ An error occurred while processing your message.");
-        } catch (replyError) {
-            console.error('Could not send error message:', replyError);
-        }
-    }
+bot.help(ctx => {
+  logger.info('Help command received', { userId: ctx.from?.id });
+  return handleHelp(ctx, bot);
 });
 
-// Send message to Slack with acknowledgment button
-async function sendToSlack(message, forwarder, forwardedFrom, messageId, chatId) {
-    const payload = {
-        channel: SLACK_CHANNEL_ID,
-        text: `📢 *Forwarded Message*\n\n📌 *From:* ${forwarder}\n🏷 *Group:* ${forwardedFrom || 'Unknown'}\n📝 *Message:* ${message}`,
-        blocks: [
-            {
-                type: "section",
-                text: {
-                    type: "mrkdwn",
-                    text: `📢 *Forwarded Message*\n\n📌 *From:* ${forwarder}\n🏷 *Group:* ${forwardedFrom || 'Unknown'}\n📝 *Message:* ${message}`
-                }
-            },
-            {
-                type: "actions",
-                elements: [
-                    {
-                        type: "button",
-                        text: {
-                            type: "plain_text",
-                            text: "Acknowledge"
-                        },
-                        style: "primary",
-                        action_id: "acknowledge_forward",
-                        value: `ack_${Date.now()}`
-                    }
-                ]
-            }
-        ]
-    };
+bot.command('ticket', ctx => {
+  logger.info('Ticket command received', { userId: ctx.from?.id });
+  return handleTicketCommand(ctx, bot);
+});
 
-    try {
-        const response = await axios.post('https://slack.com/api/chat.postMessage', payload, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SLACK_API_TOKEN}`
-            }
-        });
-        
-        if (!response.data.ok) {
-            throw new Error(`Slack API error: ${response.data.error}`);
-        }
-        
-        const messageTs = response.data.ts;
-        
-        // Store pending acknowledgment info
-        pendingSlackAcknowledgments.set(messageTs, {
-            telegramChatId: chatId,
-            telegramMessageId: messageId,
-            forwarder,
-            timestamp: Date.now()
-        });
-        
-        await bot.telegram.sendMessage(
-            chatId,
-            "✅ Message forwarded to Slack - status will update upon acknowledgment from the team."
-        );
+bot.command('status', ctx => {
+  logger.info('Status command received', { userId: ctx.from?.id });
+  return handleStatusCommand(ctx, bot);
+});
 
-        return messageTs;
-    } catch (error) {
-        console.error('Error sending to Slack:', error.response?.data || error.message);
-        throw error;
-    }
-}
+bot.command('menu', ctx => {
+  logger.info('Menu command received', { userId: ctx.from?.id });
+  return handleStart(ctx, bot); // Use start handler for menu command
+});
 
-// Helper function for webhook server to send acknowledgments
+// Register message handler
+bot.on('message', ctx => {
+  logger.info('Message received', { 
+    userId: ctx.from?.id,
+    chatId: ctx.chat?.id,
+    messageType: ctx.message.text ? 'text' : 'non-text',
+    isForwarded: !!(ctx.message.forward_from || ctx.message.forward_from_chat)
+  });
+  return handleMessage(ctx, bot);
+});
+
+// Register callback query handler (button clicks)
+bot.on('callback_query', ctx => {
+  logger.info('Callback query received', { 
+    userId: ctx.from?.id,
+    data: ctx.callbackQuery?.data 
+  });
+  return handleCallbackQuery(ctx, bot);
+});
+
+// Export the pendingSlackAcknowledgments for webhook server to access
+export { pendingSlackAcknowledgments };
+
+// Export a function for webhook server to send acknowledgments
 export function sendTelegramAcknowledgment(chatId, message) {
-    return bot.telegram.sendMessage(chatId, message);
+  logger.info('Sending Telegram acknowledgment', { chatId });
+  return bot.telegram.sendMessage(chatId, message)
+    .then(result => {
+      logger.debug('Acknowledgment sent successfully', { messageId: result.message_id });
+      return result;
+    })
+    .catch(error => {
+      logger.error('Error sending acknowledgment', error);
+      throw error;
+    });
 }
 
 // Bot initialization
 async function startBot() {
-    try {
-        console.log('Clearing webhook and pending updates...');
-        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
-        
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        console.log('Starting bot with custom polling parameters...');
-        await bot.launch({
-            polling: {
-                timeout: 10,
-                limit: 100,
-                allowedUpdates: ['message', 'callback_query'],
-            },
-            dropPendingUpdates: true
-        });
-        
-        console.log(`Bot is ready.. (Environment: ${config.DEPLOY_ENV || 'development'})`);
-    } catch (err) {
-        console.error('Failed to start bot:', err);
-    }
+  try {
+    logger.info('Clearing webhook and pending updates...');
+    await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+    
+    logger.debug('Waiting before launch...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    logger.info('Starting bot with custom polling parameters...');
+    await bot.launch({
+      polling: {
+        timeout: 10,
+        limit: 100,
+        allowedUpdates: ['message', 'callback_query'],
+      },
+      dropPendingUpdates: true
+    });
+    
+    logger.info(`Bot is ready.. (Environment: ${config.DEPLOY_ENV || 'development'})`);
+  } catch (err) {
+    logger.error('Failed to start bot:', err);
+  }
 }
+
+// Process uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception in bot process', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled rejection in bot process', { reason, promise });
+});
 
 // Only start the bot when explicitly enabled
 if (process.env.BOT_PROCESS === 'true') {
-    startBot();
+  logger.info('Starting bot process');
+  startBot();
+} else {
+  logger.info('Bot not started (BOT_PROCESS != true)');
 }
-  
+
 // Graceful shutdown
 process.once('SIGINT', () => {
-    if (process.env.BOT_PROCESS === 'true') {
-        bot.stop('SIGINT');
-    }
+  if (process.env.BOT_PROCESS === 'true') {
+    logger.info('Received SIGINT, stopping bot');
+    bot.stop('SIGINT');
+  }
 });
 process.once('SIGTERM', () => {
-    if (process.env.BOT_PROCESS === 'true') {
-        bot.stop('SIGTERM');
-    }
+  if (process.env.BOT_PROCESS === 'true') {
+    logger.info('Received SIGTERM, stopping bot');
+    bot.stop('SIGTERM');
+  }
 });
+
+export default bot;

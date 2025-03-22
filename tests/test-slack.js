@@ -3,13 +3,9 @@ import axios from 'axios';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import createLogger from '../modules/logger.js';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 dotenv.config();
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const logger = createLogger('slackTester');
 
 async function testSlackAcknowledgment() {
@@ -123,17 +119,18 @@ async function testSlackAcknowledgment() {
             text: 'Acknowledge'
           },
           type: 'button',
+          value: `test_ack_${Date.now()}`,
           action_ts: `${now}`
         }
       ]
     };
     
-    const rawPayload = `payload=${encodeURIComponent(JSON.stringify(mockPayload))}`;
+    const payloadStr = `payload=${encodeURIComponent(JSON.stringify(mockPayload))}`;
     
     // Create a signature using the signing secret
     let signature;
     if (slackSigningSecret) {
-      const sigBaseString = `v0:${now}:${rawPayload}`;
+      const sigBaseString = `v0:${now}:${payloadStr}`;
       signature = 'v0=' + crypto
         .createHmac('sha256', slackSigningSecret)
         .update(sigBaseString)
@@ -143,21 +140,24 @@ async function testSlackAcknowledgment() {
       signature = 'v0=no_secret';
     }
     
+    logger.debug('Sending webhook request to: ' + webhookUrl);
+    logger.debug('Webhook payload:', {
+      payload: mockPayload.type,
+      contentType: 'application/x-www-form-urlencoded',
+      timestamp: now.toString(),
+      hasSignature: !!signature
+    });
+    
     try {
-      logger.debug('Sending webhook request to: ' + webhookUrl);
-      logger.debug('Webhook payload:', {
-        payloadLength: rawPayload.length,
-        timestamp: now.toString(),
-        hasSignature: !!signature
-      });
-      
-      const webhookResponse = await axios.post(webhookUrl, rawPayload, {
+      // Use a timeout to ensure we don't wait forever
+      const webhookResponse = await axios.post(webhookUrl, payloadStr, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-Slack-Request-Timestamp': now.toString(),
           'X-Slack-Signature': signature
         },
-        validateStatus: null // Don't throw on any status code
+        validateStatus: null, // Don't throw on any status code
+        timeout: 5000 // 5 second timeout
       });
       
       logger.info('Webhook response:', {
@@ -167,6 +167,7 @@ async function testSlackAcknowledgment() {
       });
       
       // Give the server a moment to process the webhook
+      logger.info('Waiting for server to process request...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Clean up the test message
@@ -188,8 +189,37 @@ async function testSlackAcknowledgment() {
       }
       
       logger.info('Test completed! Check the server logs to see if acknowledgment was processed correctly.');
+      
+      if (webhookResponse.status !== 200) {
+        logger.warn('Webhook received a non-200 response code. This might indicate an issue with the server.');
+      } else {
+        logger.info('Webhook received a 200 response. This is good!');
+      }
     } catch (error) {
-      logger.error('Error sending webhook', error.response?.data || error.message);
+      if (error.code === 'ECONNREFUSED') {
+        logger.error(`Webhook server not reachable at ${webhookUrl}. Make sure it's running.`);
+      } else if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKETTIMEDOUT') {
+        logger.error(`Webhook request timed out. The server might be slow to respond.`);
+      } else {
+        logger.error('Error sending webhook:', error.message);
+      }
+      
+      // Clean up the test message even if the webhook failed
+      try {
+        logger.info('Cleaning up test message (after error)...');
+        await axios.post('https://slack.com/api/chat.delete', {
+          channel: channelId,
+          ts: messageTs
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${slackToken}`
+          }
+        });
+      } catch (cleanupError) {
+        logger.error('Error cleaning up test message:', cleanupError.message);
+      }
+      
       process.exit(1);
     }
   } catch (error) {

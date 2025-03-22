@@ -186,76 +186,174 @@ export async function handleSlackAcknowledgment(bot, payload) {
     // Check if this is our acknowledge button
     const action = payload.actions && payload.actions[0];
     
-    // Log the payload for debugging
+    // Log the entire payload for full debugging 
+    logger.debug('Slack payload received', JSON.stringify(payload, null, 2));
+    
     logger.debug('Processing acknowledgment payload', { 
       actionId: action?.action_id,
       messageTs: payload.message?.ts,
-      user: payload.user?.name || payload.user?.username
+      user: payload.user?.name || payload.user?.username,
+      channelId: payload.channel?.id
     });
     
+    // Special handling for test messages
     if (action && action.action_id === 'acknowledge_forward') {
       const messageTs = payload.message.ts;
       const userId = payload.user.id;
       const userName = payload.user.username || payload.user.name;
       
       logger.info(`Acknowledgment received from ${userName}`, { messageTs, userId });
-      logger.debug('Pending acknowledgments', { 
-        messageTs,
-        pendingKeys: [...pendingSlackAcknowledgments.keys()], 
-        pendingCount: pendingSlackAcknowledgments.size 
+      
+      // Log current pendingSlackAcknowledgments state
+      logger.debug('Current pending acknowledgments', { 
+        keys: [...pendingSlackAcknowledgments.keys()],
+        size: pendingSlackAcknowledgments.size
       });
       
+      // Special case for test messages
+      if (payload.actions[0]?.value?.startsWith('test_ack_')) {
+        logger.info('Test acknowledgment detected');
+        
+        // For test messages, we don't have a real pending acknowledgment
+        // Just update the Slack message to show it was acknowledged
+        try {
+          logger.debug('Updating test Slack message with acknowledgment');
+          await axios.post('https://slack.com/api/chat.update', {
+            channel: payload.channel.id,
+            ts: messageTs,
+            text: payload.message.text + `\n\n✅ TEST ACKNOWLEDGED by <@${userId}>`,
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: payload.message.text
+                }
+              },
+              {
+                type: "context",
+                elements: [
+                  {
+                    type: "mrkdwn",
+                    text: `✅ TEST ACKNOWLEDGED by <@${userId}> at ${new Date().toLocaleString()}`
+                  }
+                ]
+              }
+            ]
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
+            }
+          });
+          
+          logger.info('Test acknowledgment processed successfully');
+          return true;
+        } catch (error) {
+          logger.error('Error updating test message in Slack:', error);
+          return false;
+        }
+      }
+      
+      // Regular (non-test) acknowledgment processing
       if (pendingSlackAcknowledgments.has(messageTs)) {
         const pendingInfo = pendingSlackAcknowledgments.get(messageTs);
         logger.debug('Found pending info', pendingInfo);
         
-        // Send acknowledgment back to Telegram
-        await sendTelegramAcknowledgment(
-          bot,
-          pendingInfo.telegramChatId,
-          `✅ Your forwarded message has been acknowledged by ${userName} in Slack.`
-        );
-        
-        // Update the Slack message to show who acknowledged it
-        logger.debug('Updating Slack message with acknowledgment');
-        await axios.post('https://slack.com/api/chat.update', {
-          channel: payload.channel.id,
-          ts: messageTs,
-          text: payload.message.text + `\n\n✅ Acknowledged by <@${userId}>`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: payload.message.text
-              }
-            },
-            {
-              type: "context",
-              elements: [
-                {
+        try {
+          // Send acknowledgment back to Telegram
+          await sendTelegramAcknowledgment(
+            bot,
+            pendingInfo.telegramChatId,
+            `✅ Your forwarded message has been acknowledged by ${userName} in Slack.`
+          );
+          
+          // Update the Slack message to show who acknowledged it
+          logger.debug('Updating Slack message with acknowledgment');
+          await axios.post('https://slack.com/api/chat.update', {
+            channel: payload.channel.id,
+            ts: messageTs,
+            text: payload.message.text + `\n\n✅ Acknowledged by <@${userId}>`,
+            blocks: [
+              {
+                type: "section",
+                text: {
                   type: "mrkdwn",
-                  text: `✅ Acknowledged by <@${userId}> at ${new Date().toLocaleString()}`
+                  text: payload.message.text
                 }
-              ]
+              },
+              {
+                type: "context",
+                elements: [
+                  {
+                    type: "mrkdwn",
+                    text: `✅ Acknowledged by <@${userId}> at ${new Date().toLocaleString()}`
+                  }
+                ]
+              }
+            ]
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
             }
-          ]
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
-          }
-        });
-        
-        // Remove from pending list
-        pendingSlackAcknowledgments.delete(messageTs);
-        logger.info(`Acknowledgment processed successfully for message ${messageTs}`);
-        return true;
+          });
+          
+          // Remove from pending list
+          pendingSlackAcknowledgments.delete(messageTs);
+          logger.info(`Acknowledgment processed successfully for message ${messageTs}`);
+          return true;
+        } catch (error) {
+          logger.error('Error processing regular acknowledgment:', error);
+          return false;
+        }
       } else {
         logger.warn(`No pending acknowledgment found for message ${messageTs}`);
+        
+        // Try to acknowledge it anyway as a fallback
+        try {
+          logger.debug('Updating Slack message with acknowledgment (fallback)');
+          await axios.post('https://slack.com/api/chat.update', {
+            channel: payload.channel.id,
+            ts: messageTs,
+            text: payload.message.text + `\n\n✅ Acknowledged by <@${userId}> (no pending info found)`,
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: payload.message.text
+                }
+              },
+              {
+                type: "context",
+                elements: [
+                  {
+                    type: "mrkdwn",
+                    text: `✅ Acknowledged by <@${userId}> at ${new Date().toLocaleString()} (no Telegram notification sent)`
+                  }
+                ]
+              }
+            ]
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
+            }
+          });
+          
+          logger.info('Fallback acknowledgment processed successfully');
+          return true;
+        } catch (error) {
+          logger.error('Error updating fallback message in Slack:', error);
+          return false;
+        }
       }
     } else {
-      logger.debug('Not an acknowledgment action', { action });
+      logger.debug('Not an acknowledgment action', { 
+        actionId: action?.action_id,
+        actionType: action?.type
+      });
     }
   } catch (error) {
     logger.error('Error processing acknowledgment:', error);

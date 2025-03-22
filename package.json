@@ -1,7 +1,7 @@
 {
   "name": "teledesk",
   "version": "1.0.3",
-  "description": "A Telegram bot that forwards messages to a Slack channel and manages support tickets via Zendesk",
+  "description": "Telegram bot to handle multiple support streams through custom Slack/Zendesk integrations",
   "main": "bot.js",
   "type": "module",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "validate": "node tests/validate-config.js",
-    "test:slack": "node tests/test-slack.js",
+    "test:slack": "cross-env LOG_LEVEL=DEBUG node tests/test-slack.js",
+    "diagnose:slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
     "clear-webhook": "node clear-webhook.js",
     "logs": "tail -f logs/$(date +%Y-%m-%d).log"
   },

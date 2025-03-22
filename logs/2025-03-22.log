@@ -158,3 +158,11 @@
     at Function.process_params (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:346:12)
     at next (/home/cordt/repos/teledesk/node_modules/express/lib/router/index.js:280:10)
     at IncomingMessage.<anonymous> (file:///home/cordt/repos/teledesk/modules/slackWebhook.js:38:9)
+[2025-03-22T18:48:41.478Z] [INFO] [bot] Starting bot process
+[2025-03-22T18:48:41.479Z] [INFO] [bot] Clearing webhook and pending updates...
+[2025-03-22T18:48:41.532Z] [INFO] [slackWebhook] Starting webhook server
+[2025-03-22T18:48:41.542Z] [INFO] [slackWebhook] Slack webhook handler listening on port 3030
+  {
+  "testUrl": "http://localhost:3030/test",
+  "interactionsUrl": "http://localhost:3030/slack/interactions"
+}

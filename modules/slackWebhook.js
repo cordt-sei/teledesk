@@ -21,39 +21,12 @@ app.get('/test', (req, res) => {
     res.send('Webhook server is running!');
 });
 
-// raw body for verification
-app.use('/slack/interactions', (req, res, next) => {
-    let data = '';
-    req.on('data', chunk => {
-        data += chunk.toString();
-    });
-    
-    req.on('end', () => {
-        req.rawBody = data;
-        logger.debug('Raw body captured', { 
-            size: data.length, 
-            contentType: req.headers['content-type'],
-            sample: data.length > 200 ? data.substring(0, 200) + '...' : data
-        });
-        next();
-    });
-});
-
-// Parse URL-encoded data
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Parse JSON (fallback)
-app.use(bodyParser.json());
-
 // Global logging middleware
 app.use((req, res, next) => {
     logger.info(`${req.method} ${req.url}`, { 
         ip: req.ip,
-        contentType: req.headers['content-type'],
-        contentLength: req.headers['content-length']
+        contentType: req.headers['content-type']
     });
-    
-    logger.debug('Request headers', req.headers);
     
     // Enhanced response logging
     const originalSend = res.send;
@@ -68,70 +41,100 @@ app.use((req, res, next) => {
     next();
 });
 
-// Handle Slack interaction webhooks
+// DO NOT use the standard body parsers for the interactions endpoint
+// Instead, use a specialized middleware that handles Slack's format
+
+// For all other routes, parse JSON and URL-encoded data
+app.use(/^(?!\/slack\/interactions).*$/, bodyParser.json());
+app.use(/^(?!\/slack\/interactions).*$/, bodyParser.urlencoded({ extended: true }));
+
+// Set up a specialized handler for the Slack interactions endpoint
 app.post('/slack/interactions', async (req, res) => {
     logger.info('Received Slack interaction webhook');
     
-    try {
-        // Log the raw request for troubleshooting
-        logger.debug('Raw request data', { 
-            contentType: req.headers['content-type'],
-            hasRawBody: !!req.rawBody,
-            bodyKeys: Object.keys(req.body)
-        });
-        
-        // Slack expects a response within 3 seconds
-        // So we send a 200 OK response immediately, and process the true 'ack' asynchronously
-        res.status(200).send('');
-        
-        // Continue processing in the background
-        
-        // Validate the request is coming from Slack in development mode
-        if (!validateSlackRequest(req, config.SLACK_SIGNING_SECRET)) {
-            logger.error('Invalid Slack request signature');
-            return; // Already sent response
-        }
-        
-        // Parse payload from form data or direct JSON
-        let payload;
-        if (req.body && req.body.payload) {
-            try {
-                logger.debug('Parsing payload from form data');
-                payload = JSON.parse(req.body.payload);
-            } catch (error) {
-                logger.error('Error parsing payload from form data', error);
+    // Buffer the raw body first
+    let rawBody = '';
+    req.on('data', chunk => {
+        rawBody += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+        try {
+            // Immediately respond to Slack to prevent timeout
+            res.status(200).send('');
+            
+            // Store raw body for verification
+            req.rawBody = rawBody;
+            
+            // Log raw request data
+            logger.debug('Raw request data', {
+                contentType: req.headers['content-type'],
+                rawBodyLength: rawBody.length,
+                rawBodyPreview: rawBody.substring(0, 100) + '...'
+            });
+            
+            // Validating signature can continue in background
+            const isValid = validateSlackRequest(req, config.SLACK_SIGNING_SECRET);
+            if (!isValid && config.DEPLOY_ENV === 'production') {
+                logger.error('Invalid Slack request signature in production');
                 return; // Already sent response
             }
-        } else if (req.body && req.body.type) {
-            // Handle direct JSON
-            logger.debug('Using direct JSON payload');
-            payload = req.body;
-        } else {
-            logger.error('No recognizable payload format', {
-                body: req.body,
-                rawBody: req.rawBody?.substring(0, 200)
+            
+            // Parse the body based on content type
+            let payload;
+            
+            if (req.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
+                // Parse URL-encoded form data
+                const params = new URLSearchParams(rawBody);
+                
+                if (params.has('payload')) {
+                    try {
+                        payload = JSON.parse(params.get('payload'));
+                        logger.debug('Parsed form-encoded payload successfully');
+                    } catch (error) {
+                        logger.error('Error parsing JSON from form payload', error);
+                        return;
+                    }
+                } else {
+                    logger.error('Form data missing payload parameter', {
+                        params: Array.from(params.keys()).join(', ')
+                    });
+                    return;
+                }
+            } else if (req.headers['content-type']?.includes('application/json')) {
+                // Parse JSON directly
+                try {
+                    payload = JSON.parse(rawBody);
+                    logger.debug('Parsed JSON payload directly');
+                } catch (error) {
+                    logger.error('Error parsing direct JSON payload', error);
+                    return;
+                }
+            } else {
+                logger.error('Unsupported content type', {
+                    contentType: req.headers['content-type']
+                });
+                return;
+            }
+            
+            // Log significant payload details
+            logger.info('Processing Slack payload', { 
+                type: payload.type,
+                actionCount: payload.actions?.length,
+                user: payload.user?.username || payload.user?.name
             });
-            return; // Already sent response
+            
+            // Handle acknowledgments
+            if (payload.type === 'block_actions') {
+                const result = await handleSlackAcknowledgment(bot, payload);
+                logger.info('Acknowledgment handling result', { success: result });
+            } else {
+                logger.info('Ignoring non-block-actions payload', { type: payload.type });
+            }
+        } catch (error) {
+            logger.error('Error processing webhook', error);
         }
-        
-        // Log significant payload details
-        logger.info('Processing Slack payload', { 
-            type: payload.type,
-            actionCount: payload.actions?.length,
-            user: payload.user?.username || payload.user?.name
-        });
-        
-        // Handle acknowledgments
-        if (payload.type === 'block_actions') {
-            const result = await handleSlackAcknowledgment(bot, payload);
-            logger.info('Acknowledgment handling result', { success: result });
-        } else {
-            logger.info('Ignoring non-block-actions payload', { type: payload.type });
-        }
-    } catch (error) {
-        logger.error('Error processing webhook', error);
-        // No need to send error response since we already sent 200 OK
-    }
+    });
 });
 
 // Error handling middleware

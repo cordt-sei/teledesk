@@ -175,3 +175,21 @@
   "testUrl": "http://localhost:3030/test",
   "interactionsUrl": "http://localhost:3030/slack/interactions"
 }
+[2025-03-22T18:49:14.777Z] [INFO] [bot] Starting bot with custom polling parameters...
+[2025-03-22T18:52:12.292Z] [INFO] [bot] Starting bot process
+[2025-03-22T18:52:12.294Z] [INFO] [bot] Clearing webhook and pending updates...
+[2025-03-22T18:52:12.339Z] [INFO] [slackWebhook] Starting webhook server
+[2025-03-22T18:52:12.347Z] [INFO] [slackWebhook] Slack webhook handler listening on port 3030
+  {
+  "testUrl": "http://localhost:3030/test",
+  "interactionsUrl": "http://localhost:3030/slack/interactions"
+}
+[2025-03-22T18:52:15.871Z] [INFO] [bot] Starting bot with custom polling parameters...
+[2025-03-22T18:52:16.262Z] [INFO] [bot] Starting bot process
+[2025-03-22T18:52:16.265Z] [INFO] [bot] Clearing webhook and pending updates...
+[2025-03-22T18:52:16.319Z] [INFO] [slackWebhook] Starting webhook server
+[2025-03-22T18:52:16.329Z] [INFO] [slackWebhook] Slack webhook handler listening on port 3030
+  {
+  "testUrl": "http://localhost:3030/test",
+  "interactionsUrl": "http://localhost:3030/slack/interactions"
+}

@@ -104,7 +104,6 @@ export function sendTelegramAcknowledgment(bot, chatId, message) {
   logger.info(`Sending acknowledgment to Telegram`, { chatId, message });
   return bot.telegram.sendMessage(chatId, message);
 }
-
 /**
  * Validate that a Slack webhook request is genuine
  * @param {Object} req - Express request object
@@ -127,17 +126,20 @@ export function validateSlackRequest(req, slackSigningSecret) {
   
   const slackSignature = req.headers['x-slack-signature'];
   const timestamp = req.headers['x-slack-request-timestamp'];
-  const body = req.rawBody || JSON.stringify(req.body);
   
-  if (!slackSignature || !timestamp) {
-    logger.error('❌ Missing Slack headers:', { 
+  // raw request body as set by middleware
+  const body = req.rawBody;
+  
+  if (!slackSignature || !timestamp || !body) {
+    logger.error('❌ Missing Slack headers or body:', { 
       hasSignature: !!slackSignature, 
-      hasTimestamp: !!timestamp 
+      hasTimestamp: !!timestamp,
+      hasBody: !!body
     });
     return false;
   }
   
-  // Check if timestamp is recent (prevent replay attacks)
+  // check timestamp for safety
   const currentTime = Math.floor(Date.now() / 1000);
   if (Math.abs(currentTime - timestamp) > 300) {
     logger.error('❌ Request timestamp too old:', { 
@@ -154,6 +156,11 @@ export function validateSlackRequest(req, slackSigningSecret) {
     .createHmac('sha256', slackSigningSecret)
     .update(sigBaseString)
     .digest('hex');
+  
+  logger.debug('Signature validation', {
+    expected: signature.substring(0, 10) + '...',
+    received: slackSignature.substring(0, 10) + '...'
+  });
   
   // Use constant-time comparison
   try {

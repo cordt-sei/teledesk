@@ -83,7 +83,7 @@ export async function sendToSlack(bot, message, forwarder, forwardedFrom, messag
     
     await bot.telegram.sendMessage(
       chatId,
-      "✅ Message forwarded to Slack - status will update upon acknowledgment from the team."
+      "🟢 Message forwarded to Slack - status will update upon acknowledgment from the team."
     );
 
     return messageTs;
@@ -115,12 +115,12 @@ export function validateSlackRequest(req, slackSigningSecret) {
   
   // If no signing secret is configured, skip validation in development
   if (!slackSigningSecret && config.DEPLOY_ENV !== 'production') {
-    logger.warn('⚠️ Slack signing secret not configured. Skipping validation in development mode.');
+    logger.warn('🟡️ Slack signing secret not configured. Skipping validation in development mode.');
     return true;
   }
   
   if (!slackSigningSecret) {
-    logger.error('❌ Slack signing secret not configured.');
+    logger.error('🔴 Slack signing secret not configured.');
     return false;
   }
   
@@ -131,7 +131,7 @@ export function validateSlackRequest(req, slackSigningSecret) {
   const body = req.rawBody;
   
   if (!slackSignature || !timestamp || !body) {
-    logger.error('❌ Missing Slack headers or body:', { 
+    logger.error('🔴 Missing Slack headers or body:', { 
       hasSignature: !!slackSignature, 
       hasTimestamp: !!timestamp,
       hasBody: !!body
@@ -142,7 +142,7 @@ export function validateSlackRequest(req, slackSigningSecret) {
   // check timestamp for safety
   const currentTime = Math.floor(Date.now() / 1000);
   if (Math.abs(currentTime - timestamp) > 300) {
-    logger.error('❌ Request timestamp too old:', { 
+    logger.error('🔴 Request timestamp too old:', { 
       requestTime: timestamp, 
       currentTime, 
       difference: Math.abs(currentTime - timestamp) 
@@ -170,14 +170,14 @@ export function validateSlackRequest(req, slackSigningSecret) {
     );
     
     if (!isValid) {
-      logger.error('❌ Invalid signature');
+      logger.error('🔴 Invalid signature');
     } else {
-      logger.debug('✅ Signature validation successful');
+      logger.debug('🟢 Signature validation successful');
     }
     
     return isValid;
   } catch (e) {
-    logger.error('❌ Error validating signature:', e);
+    logger.error('🔴 Error validating signature:', e);
     return false;
   }
 }
@@ -228,7 +228,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
           await axios.post('https://slack.com/api/chat.update', {
             channel: payload.channel.id,
             ts: messageTs,
-            text: payload.message.text + `\n\n✅ TEST ACKNOWLEDGED by <@${userId}>`,
+            text: payload.message.text + `\n\n🟢 TEST ACKNOWLEDGED by <@${userId}>`,
             blocks: [
               {
                 type: "section",
@@ -242,7 +242,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
                 elements: [
                   {
                     type: "mrkdwn",
-                    text: `✅ TEST ACKNOWLEDGED by <@${userId}> at ${new Date().toLocaleString()}`
+                    text: `🟢 TEST ACKNOWLEDGED by <@${userId}> at ${new Date().toLocaleString()}`
                   }
                 ]
               }
@@ -272,7 +272,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
           await sendTelegramAcknowledgment(
             bot,
             pendingInfo.telegramChatId,
-            `✅ Your forwarded message has been acknowledged by ${userName} in Slack.`
+            `🟢 Your forwarded message has been acknowledged by ${userName} in Slack.`
           );
           
           // Update the Slack message to show who acknowledged it
@@ -280,7 +280,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
           await axios.post('https://slack.com/api/chat.update', {
             channel: payload.channel.id,
             ts: messageTs,
-            text: payload.message.text + `\n\n✅ Acknowledged by <@${userId}>`,
+            text: payload.message.text + `\n\n🟢 Acknowledged by <@${userId}>`,
             blocks: [
               {
                 type: "section",
@@ -294,7 +294,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
                 elements: [
                   {
                     type: "mrkdwn",
-                    text: `✅ Acknowledged by <@${userId}> at ${new Date().toLocaleString()}`
+                    text: `🟢 Acknowledged by <@${userId}> at ${new Date().toLocaleString()}`
                   }
                 ]
               }
@@ -323,7 +323,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
           await axios.post('https://slack.com/api/chat.update', {
             channel: payload.channel.id,
             ts: messageTs,
-            text: payload.message.text + `\n\n✅ Acknowledged by <@${userId}> (no pending info found)`,
+            text: payload.message.text + `\n\n🟢 Acknowledged by <@${userId}> (no pending info found)`,
             blocks: [
               {
                 type: "section",
@@ -337,7 +337,7 @@ export async function handleSlackAcknowledgment(bot, payload) {
                 elements: [
                   {
                     type: "mrkdwn",
-                    text: `✅ Acknowledged by <@${userId}> at ${new Date().toLocaleString()} (no Telegram notification sent)`
+                    text: `🟢 Acknowledged by <@${userId}> at ${new Date().toLocaleString()} (no Telegram notification sent)`
                   }
                 ]
               }

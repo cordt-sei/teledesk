@@ -38,14 +38,14 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
       if (ticket) {
         await addCommentToTicket(ticket.id, message, username);
         await ctx.reply(
-          "✅ Your message has been added to your existing support ticket.\n\n" +
+          "🟢 Your message has been added to your existing support ticket.\n\n" +
           "A team member will respond shortly."
         );
       } else {
         // No active ticket found, create a new one
         const ticketId = await createZendeskTicket(message, username, userId, severity, severityTag);
         await ctx.reply(
-          `✅ We couldn't find an existing ticket, so we've created a new support ticket (#${ticketId}).\n\n` +
+          `🟢 We couldn't find an existing ticket, so we've created a new support ticket (#${ticketId}).\n\n` +
           "A team member will respond shortly."
         );
       }
@@ -60,7 +60,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
           `You have an active ticket (#${existingTicket.id}): "${existingTicket.subject}"\n\n` +
           "Is your new message related to this ticket?",
           Markup.inlineKeyboard([
-            [Markup.button.callback('✅ Yes, add to existing ticket', 'add_to_existing')],
+            [Markup.button.callback('🟢 Yes, add to existing ticket', 'add_to_existing')],
             [Markup.button.callback('📝 No, create a new ticket', 'create_new_ticket')]
           ])
         );
@@ -77,7 +77,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
         // No existing ticket or force new ticket, create a new one
         const ticketId = await createZendeskTicket(message, username, userId, severity, severityTag);
         await ctx.reply(
-          `✅ Your support ticket (#${ticketId}) has been created with ${severity} priority.\n\n` +
+          `🟢 Your support ticket (#${ticketId}) has been created with ${severity} priority.\n\n` +
           "A team member will respond shortly."
         );
         return { status: 'complete' };
@@ -86,7 +86,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
   } catch (error) {
     console.error('Error handling support ticket:', error);
     await ctx.reply(
-      "❌ There was an issue processing your support request. Please try again later."
+      "🔴 There was an issue processing your support request. Please try again later."
     );
     return { status: 'error' };
   }
@@ -278,7 +278,7 @@ export async function notifySlackOfNewTicket(ticketId, username, description, se
     } else if (severity === 'High') {
       priorityEmoji = '🔴';
     } else if (severity === 'Urgent') {
-      priorityEmoji = '⚠️';
+      priorityEmoji = '🟡️';
     }
     
     // Truncate long descriptions for Slack message

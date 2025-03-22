@@ -20,10 +20,10 @@ async function validateConfiguration() {
   const missingVars = requiredVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`);
+    console.error(`🔴 Missing required environment variables: ${missingVars.join(', ')}`);
     process.exit(1);
   } else {
-    console.log('✅ All required environment variables are set');
+    console.log('🟢 All required environment variables are set');
   }
   
   // Validate Telegram Token
@@ -32,9 +32,9 @@ async function validateConfiguration() {
     const telegramResponse = await axios.get(
       `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`
     );
-    console.log(`✅ Telegram Bot Token is valid (Bot: ${telegramResponse.data.result.username})`);
+    console.log(`🟢 Telegram Bot Token is valid (Bot: ${telegramResponse.data.result.username})`);
   } catch (error) {
-    console.error('❌ Invalid Telegram Bot Token:', error.response?.data || error.message);
+    console.error('🔴 Invalid Telegram Bot Token:', error.response?.data || error.message);
     process.exit(1);
   }
   
@@ -44,7 +44,7 @@ async function validateConfiguration() {
     
     // Verify if token is correct format
     if (!process.env.SLACK_API_TOKEN.startsWith('xoxb-')) {
-      console.warn('⚠️ Slack token should be a bot token starting with xoxb-');
+      console.warn('🟡️ Slack token should be a bot token starting with xoxb-');
     }
     
     const slackResponse = await axios.post(
@@ -59,9 +59,9 @@ async function validateConfiguration() {
     );
     
     if (slackResponse.data.ok) {
-      console.log(`✅ Slack API Token is valid (Team: ${slackResponse.data.team})`);
+      console.log(`🟢 Slack API Token is valid (Team: ${slackResponse.data.team})`);
     } else {
-      console.error('❌ Invalid Slack API Token:', slackResponse.data.error);
+      console.error('🔴 Invalid Slack API Token:', slackResponse.data.error);
       return 1;
     }
     
@@ -81,7 +81,7 @@ async function validateConfiguration() {
     );
     
     if (testResponse.data.ok) {
-      console.log(`✅ Successfully posted to Slack channel`);
+      console.log(`🟢 Successfully posted to Slack channel`);
       
       // Delete the test message
       await axios.post(
@@ -98,14 +98,14 @@ async function validateConfiguration() {
         }
       );
     } else {
-      console.error(`❌ Could not post to Slack channel: ${testResponse.data.error}`);
+      console.error(`🔴 Could not post to Slack channel: ${testResponse.data.error}`);
       if (testResponse.data.error === 'not_in_channel') {
         console.error(`   Solution: Invite the bot to the channel with /invite @YourBotName`);
       }
       return 1;
     }
   } catch (error) {
-    console.error('❌ Error validating Slack configuration:', error.response?.data || error.message);
+    console.error('🔴 Error validating Slack configuration:', error.response?.data || error.message);
     return 1;
   }
   
@@ -122,9 +122,9 @@ async function validateConfiguration() {
       }
     );
     
-    console.log('✅ Zendesk API credentials are valid');
+    console.log('🟢 Zendesk API credentials are valid');
   } catch (error) {
-    console.error('❌ Invalid Zendesk API credentials:', error.response?.data || error.message);
+    console.error('🔴 Invalid Zendesk API credentials:', error.response?.data || error.message);
     return 1;
   }
   

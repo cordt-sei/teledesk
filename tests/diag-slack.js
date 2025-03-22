@@ -21,23 +21,23 @@ async function diagnoseSlackSetup() {
   logger.info('Checking environment variables...');
   
   if (!slackToken) {
-    issues.push('❌ SLACK_API_TOKEN is not set in environment');
+    issues.push('🔴 SLACK_API_TOKEN is not set in environment');
   } else if (!slackToken.startsWith('xoxb-')) {
-    issues.push('⚠️ SLACK_API_TOKEN should start with "xoxb-" - you might be using the wrong token type');
+    issues.push('🟡️ SLACK_API_TOKEN should start with "xoxb-" - you might be using the wrong token type');
   } else {
-    logger.info('✅ SLACK_API_TOKEN is properly set');
+    logger.info('🟢 SLACK_API_TOKEN is properly set');
   }
   
   if (!slackChannelId) {
-    issues.push('❌ SLACK_CHANNEL_ID is not set in environment');
+    issues.push('🔴 SLACK_CHANNEL_ID is not set in environment');
   } else {
-    logger.info('✅ SLACK_CHANNEL_ID is set');
+    logger.info('🟢 SLACK_CHANNEL_ID is set');
   }
   
   if (!slackSigningSecret) {
-    issues.push('⚠️ SLACK_SIGNING_SECRET is not set - signature verification will be skipped in development');
+    issues.push('🟡️ SLACK_SIGNING_SECRET is not set - signature verification will be skipped in development');
   } else {
-    logger.info('✅ SLACK_SIGNING_SECRET is set');
+    logger.info('🟢 SLACK_SIGNING_SECRET is set');
   }
   
   // Check if webhook server is running
@@ -47,12 +47,12 @@ async function diagnoseSlackSetup() {
     const testUrl = webhookUrl.replace('/slack/interactions', '/test');
     const response = await axios.get(testUrl, { timeout: 5000 });
     if (response.status === 200) {
-      logger.info(`✅ Webhook server test endpoint is responsive (${response.data})`);
+      logger.info(`🟢 Webhook server test endpoint is responsive (${response.data})`);
     } else {
-      issues.push(`⚠️ Webhook server returned unexpected status: ${response.status}`);
+      issues.push(`🟡️ Webhook server returned unexpected status: ${response.status}`);
     }
   } catch (error) {
-    issues.push(`❌ Webhook server is not reachable at ${webhookUrl.replace('/slack/interactions', '/test')}: ${error.message}`);
+    issues.push(`🔴 Webhook server is not reachable at ${webhookUrl.replace('/slack/interactions', '/test')}: ${error.message}`);
   }
   
   // Test Slack API access
@@ -66,12 +66,12 @@ async function diagnoseSlackSetup() {
     });
     
     if (authResponse.data.ok) {
-      logger.info(`✅ Slack API access confirmed (Team: ${authResponse.data.team}, User: ${authResponse.data.user})`);
+      logger.info(`🟢 Slack API access confirmed (Team: ${authResponse.data.team}, User: ${authResponse.data.user})`);
     } else {
-      issues.push(`❌ Slack API access failed: ${authResponse.data.error}`);
+      issues.push(`🔴 Slack API access failed: ${authResponse.data.error}`);
     }
   } catch (error) {
-    issues.push(`❌ Slack API access test failed: ${error.message}`);
+    issues.push(`🔴 Slack API access test failed: ${error.message}`);
   }
   
   // Check if bot is in the channel
@@ -87,7 +87,7 @@ async function diagnoseSlackSetup() {
       });
       
       if (channelResponse.data.ok) {
-        logger.info(`✅ Channel exists: ${channelResponse.data.channel.name}`);
+        logger.info(`🟢 Channel exists: ${channelResponse.data.channel.name}`);
         
         // Check if bot is in channel
         const membersResponse = await axios.post('https://slack.com/api/conversations.members', 
@@ -108,18 +108,18 @@ async function diagnoseSlackSetup() {
           });
           
           if (botInfoResponse.data.ok && membersResponse.data.members.includes(botInfoResponse.data.user_id)) {
-            logger.info('✅ Bot is a member of the channel');
+            logger.info('🟢 Bot is a member of the channel');
           } else {
-            issues.push(`❌ Bot is not a member of the channel. Add the bot to the channel with /invite @${botInfoResponse.data.user}`);
+            issues.push(`🔴 Bot is not a member of the channel. Add the bot to the channel with /invite @${botInfoResponse.data.user}`);
           }
         } else {
-          issues.push(`❌ Couldn't check channel members: ${membersResponse.data.error}`);
+          issues.push(`🔴 Couldn't check channel members: ${membersResponse.data.error}`);
         }
       } else {
-        issues.push(`❌ Channel check failed: ${channelResponse.data.error}`);
+        issues.push(`🔴 Channel check failed: ${channelResponse.data.error}`);
       }
     } catch (error) {
-      issues.push(`❌ Channel access test failed: ${error.message}`);
+      issues.push(`🔴 Channel access test failed: ${error.message}`);
     }
   }
   
@@ -149,7 +149,7 @@ async function diagnoseSlackSetup() {
       logger.info('• Invite the bot to the channel using /invite @YourBotName');
     }
   } else {
-    logger.info('\n✅ All diagnostics passed! Your Slack setup appears to be working correctly.');
+    logger.info('\n🟢 All diagnostics passed! Your Slack setup appears to be working correctly.');
   }
 }
 

@@ -152,7 +152,7 @@ export const mainMenuKeyboard = Markup.inlineKeyboard([
 export const supportMenuKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('✏️ Add Information', 'add_info')],
   [Markup.button.callback('🔍 Check Status', 'check_status')],
-  [Markup.button.callback('✅ Close Ticket', 'close_ticket')],
+  [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
   [Markup.button.callback('« Back to Main Menu', 'main_menu')]
 ]);
 

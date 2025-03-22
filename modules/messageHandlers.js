@@ -169,7 +169,7 @@ export async function handleTicketCommand(ctx, bot) {
     "• Steps you've already taken\n\n" +
     "Your next message will be used to create the ticket.",
     Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Cancel', 'cancel_ticket')]
+      [Markup.button.callback('🔴 Cancel', 'cancel_ticket')]
     ])
   );
   
@@ -214,7 +214,7 @@ export async function checkTicketStatus(ctx, bot) {
       Markup.inlineKeyboard([
         [Markup.button.callback('✏️ Add Information', 'add_info')],
         [Markup.button.callback('🔍 Check Status', 'check_status')],
-        [Markup.button.callback('✅ Close Ticket', 'close_ticket')],
+        [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
       ])
     );
@@ -247,7 +247,7 @@ export async function handleCloseTicket(ctx, bot) {
   if (closed) {
     const closedMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "✅ *Ticket Closed*\n\n" +
+      "🟢 *Ticket Closed*\n\n" +
       "Your support ticket has been marked as resolved. " +
       "Thank you for using SEI Helpdesk! If you need further assistance, you can create a new ticket anytime.",
       Markup.inlineKeyboard([
@@ -262,12 +262,12 @@ export async function handleCloseTicket(ctx, bot) {
   } else {
     const errorMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "❌ *Error Closing Ticket*\n\n" +
+      "🔴 *Error Closing Ticket*\n\n" +
       "There was an issue closing your ticket. It might be already closed or there was a system error.",
       Markup.inlineKeyboard([
         [Markup.button.callback('✏️ Add Information', 'add_info')],
         [Markup.button.callback('🔍 Check Status', 'check_status')],
-        [Markup.button.callback('✅ Close Ticket', 'close_ticket')],
+        [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
       ])
     );
@@ -359,7 +359,7 @@ export async function handleMessage(ctx, bot) {
             forwardInfo.messageId, 
             chatId
           );
-          await ctx.reply("✅ Message forwarded to Slack!");
+          await ctx.reply("🟢 Message forwarded to Slack!");
           pendingForwards.delete(userId);
           conversationStates.delete(userId);
         }
@@ -410,7 +410,7 @@ export async function handleMessage(ctx, bot) {
           conversationStates.delete(userId);
           
           // Show confirmation and support menu
-          await ctx.reply("✅ Information added to your ticket!");
+          await ctx.reply("🟢 Information added to your ticket!");
           setTimeout(async () => {
             await showSupportMenu(ctx, bot);
           }, 1000);
@@ -435,7 +435,7 @@ export async function handleMessage(ctx, bot) {
     console.error('Error processing message:', error);
     try {
       await ctx.reply(
-        "❌ An error occurred while processing your message. Please try again.",
+        "🔴 An error occurred while processing your message. Please try again.",
         Markup.inlineKeyboard([
           [Markup.button.callback('🔄 Start Over', 'main_menu')]
         ])
@@ -468,7 +468,7 @@ export async function handleTicketChoice(ctx, choice) {
       );
       
       await ctx.reply(
-        "✅ Your message has been added to your existing support ticket.\n\n" +
+        "🟢 Your message has been added to your existing support ticket.\n\n" +
         "A team member will respond shortly."
       );
     } else {
@@ -482,7 +482,7 @@ export async function handleTicketChoice(ctx, choice) {
       );
       
       await ctx.reply(
-        `✅ Your new support ticket (#${ticketId}) has been created with ${userState.severity} priority.\n\n` +
+        `🟢 Your new support ticket (#${ticketId}) has been created with ${userState.severity} priority.\n\n` +
         "A team member will respond shortly."
       );
     }
@@ -492,7 +492,7 @@ export async function handleTicketChoice(ctx, choice) {
     return true;
   } catch (error) {
     console.error(`Error handling ticket choice: ${error}`);
-    await ctx.reply("❌ There was an error processing your request. Please try again.");
+    await ctx.reply("🔴 There was an error processing your request. Please try again.");
     return false;
   }
 }
@@ -545,7 +545,7 @@ export async function handleCallbackQuery(ctx, bot) {
           "• Steps you've already taken\n\n" +
           "Your next message will be used to create the ticket.",
           Markup.inlineKeyboard([
-            [Markup.button.callback('❌ Cancel', 'cancel_ticket')]
+            [Markup.button.callback('🔴 Cancel', 'cancel_ticket')]
           ])
         );
         break;
@@ -584,7 +584,7 @@ export async function handleCallbackQuery(ctx, bot) {
           "✏️ *Add Information to Ticket*\n\n" +
           "Please type your additional information below. This will be added to your existing ticket.",
           Markup.inlineKeyboard([
-            [Markup.button.callback('❌ Cancel', 'cancel_update')]
+            [Markup.button.callback('🔴 Cancel', 'cancel_update')]
           ])
         );
         break;
@@ -612,7 +612,7 @@ export async function handleCallbackQuery(ctx, bot) {
     }
   } catch (error) {
     console.error('Error handling callback query:', error);
-    await ctx.reply("❌ An error occurred processing your request. Please try again.");
+    await ctx.reply("🔴 An error occurred processing your request. Please try again.");
   }
 }
 
@@ -671,7 +671,7 @@ export async function sendToSlack(bot, message, forwarder, forwardedFrom, messag
     
     await bot.telegram.sendMessage(
       chatId,
-      "✅ Message forwarded to Slack - status will update upon acknowledgment from the team."
+      "🟢 Message forwarded to Slack - status will update upon acknowledgment from the team."
     );
 
     return messageTs;

@@ -4,7 +4,7 @@ A Telegram bot that forwards messages to Slack and manages support tickets via Z
 
 ## Features
 
-- Forward messages from Telegram to Slack with acknowledgment system
+- Forward messages from Telegram to Slack with Ack system
 - Create support tickets in Zendesk from Telegram messages
 - Update tickets with ongoing conversation
 - Notify team of new tickets via Slack
@@ -238,7 +238,7 @@ pm2 logs
 
 1. Forward a message from any chat to the bot
 2. If source isn't detected, bot asks for origin
-3. Message appears in Slack with acknowledgment button
+3. Message appears in Slack with Ack button
 4. When clicked, bot notifies the original forwarder
 
 ### Support Workflow

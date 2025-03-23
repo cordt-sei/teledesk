@@ -8,7 +8,7 @@ dotenv.config();
 
 const logger = createLogger('slackTester');
 
-async function testSlackAcknowledgment() {
+async function testSlackAck() {
   try {
     // Load environment variables
     const slackToken = process.env.SLACK_API_TOKEN;
@@ -26,13 +26,13 @@ async function testSlackAcknowledgment() {
     
     const response = await axios.post('https://slack.com/api/chat.postMessage', {
       channel: channelId,
-      text: "🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack acknowledgment system.",
+      text: "🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system.",
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack acknowledgment system."
+            text: "🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system."
           }
         },
         {
@@ -85,14 +85,14 @@ async function testSlackAcknowledgment() {
       channel: { id: channelId, name: 'testchannel' },
       message: {
         type: 'message',
-        text: '🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack acknowledgment system.',
+        text: '🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system.',
         ts: messageTs,
         blocks: [
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: '🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack acknowledgment system.'
+              text: '🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system.'
             }
           },
           {
@@ -188,7 +188,7 @@ async function testSlackAcknowledgment() {
         logger.warn('Failed to delete test message', deleteResponse.data);
       }
       
-      logger.info('Test completed! Check the server logs to see if acknowledgment was processed correctly.');
+      logger.info('Test completed! Check the server logs to see if Ack was processed correctly.');
       
       if (webhookResponse.status !== 200) {
         logger.warn('Webhook received a non-200 response code. This might indicate an issue with the server.');
@@ -230,8 +230,8 @@ async function testSlackAcknowledgment() {
 
 // Main function
 async function main() {
-  logger.info('Starting Slack acknowledgment test...');
-  await testSlackAcknowledgment();
+  logger.info('Starting Slack Ack test...');
+  await testSlackAck();
   logger.info('Test complete!');
 }
 

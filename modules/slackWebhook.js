@@ -3,22 +3,46 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import config from '../config.js';
-import { pendingSlackAcknowledgments } from './state.js';
-import { validateSlackRequest, handleSlackAcknowledgment } from './slackIntegration.js';
-import { Telegraf } from 'telegraf';
+import { pendingSlackAcks } from './state.js';
+import { validateSlackRequest, handleSlackAck } from './slackIntegration.js';
 import createLogger from './logger.js';
+import { bot } from '../bot.js';
 
 // Initialize logger
 const logger = createLogger('slackWebhook');
 
 const PORT = process.env.PORT || 3030;
 const app = express();
-const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
 
+// Log the state of pendingSlackAcks for debugging
+logger.debug('pendingSlackAcks in slackWebhook.js at startup:', {
+    isMap: pendingSlackAcks instanceof Map,
+    size: pendingSlackAcks.size,
+    keys: Array.from(pendingSlackAcks.keys())
+  });
+  
 // Simple liveness endpoint
 app.get('/test', (req, res) => {
     logger.info('Test endpoint hit');
     res.send('Webhook server is running!');
+});
+
+// Debug endpoint to check pending Acks
+app.get('/debug-acks', (req, res) => {
+    if (config.DEPLOY_ENV !== 'production') {
+        logger.info('Debug endpoint checking Acks');
+        const acks = Array.from(pendingSlackAcks.entries()).map(([key, value]) => ({
+            messageTs: key,
+            chatId: value.telegramChatId,
+            timestamp: new Date(value.timestamp).toISOString()
+        }));
+        res.json({
+            count: pendingSlackAcks.size,
+            items: acks
+        });
+    } else {
+        res.status(403).send('Forbidden in production');
+    }
 });
 
 // Global logging middleware
@@ -41,16 +65,19 @@ app.use((req, res, next) => {
     next();
 });
 
-// DO NOT use the standard body parsers for the interactions endpoint
-// Instead, use a specialized middleware that handles Slack's format
-
 // For all other routes, parse JSON and URL-encoded data
 app.use(/^(?!\/slack\/interactions).*$/, bodyParser.json());
 app.use(/^(?!\/slack\/interactions).*$/, bodyParser.urlencoded({ extended: true }));
 
 // Set up a specialized handler for the Slack interactions endpoint
-app.post('/slack/interactions', async (req, res) => {
+app.post('/slack/interactions', (req, res) => {
     logger.info('Received Slack interaction webhook');
+    
+    // Check pendingSlackAcks to make sure we have access
+    logger.debug('Current pending Acks state in webhook handler', {
+        size: pendingSlackAcks.size,
+        keys: Array.from(pendingSlackAcks.keys())
+    });
     
     // Buffer the raw body first
     let rawBody = '';
@@ -124,10 +151,10 @@ app.post('/slack/interactions', async (req, res) => {
                 user: payload.user?.username || payload.user?.name
             });
             
-            // Handle acknowledgments
+            // Handle Acks
             if (payload.type === 'block_actions') {
-                const result = await handleSlackAcknowledgment(bot, payload);
-                logger.info('Acknowledgment handling result', { success: result });
+                const result = await handleSlackAck(bot, payload);
+                logger.info('Ack handling result', { success: result });
             } else {
                 logger.info('Ignoring non-block-actions payload', { type: payload.type });
             }

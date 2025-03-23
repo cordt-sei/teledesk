@@ -113,10 +113,24 @@ async function diagnoseSlackSetup() {
             issues.push(`🔴 Bot is not a member of the channel. Add the bot to the channel with /invite @${botInfoResponse.data.user}`);
           }
         } else {
-          issues.push(`🔴 Couldn't check channel members: ${membersResponse.data.error}`);
+          // Specific error for missing_scope
+          if (membersResponse.data.error === 'missing_scope') {
+            issues.push('🔴 Missing required scope: "channels:read" or "groups:read" or "mpim:read" or "im:read"');
+            issues.push('   This scope is needed to check channel members. Add it in your Slack App settings → OAuth & Permissions → Scopes');
+          } else {
+            issues.push(`🔴 Couldn't check channel members: ${membersResponse.data.error}`);
+          }
         }
       } else {
-        issues.push(`🔴 Channel check failed: ${channelResponse.data.error}`);
+        // Specific error for channel_not_found
+        if (channelResponse.data.error === 'channel_not_found') {
+          issues.push(`🔴 Channel ${slackChannelId} not found. Make sure the channel exists and the bot has access to it.`);
+        } else if (channelResponse.data.error === 'missing_scope') {
+          issues.push('🔴 Missing required scope: "channels:read" or "groups:read"');
+          issues.push('   This scope is needed to check channel info. Add it in your Slack App settings → OAuth & Permissions → Scopes');
+        } else {
+          issues.push(`🔴 Channel check failed: ${channelResponse.data.error}`);
+        }
       }
     } catch (error) {
       issues.push(`🔴 Channel access test failed: ${error.message}`);
@@ -127,7 +141,7 @@ async function diagnoseSlackSetup() {
   logger.info('To complete setup, ensure the following in your Slack App settings:');
   logger.info('1. Interactivity is turned ON');
   logger.info(`2. Request URL is set to ${webhookUrl}`);
-  logger.info('3. Bot has the required scopes: chat:write, channels:read, chat:write.public');
+  logger.info('3. Bot has the required scopes: chat:write, channels:read, chat:write.public, groups:read, im:read');
   
   // Summary
   if (issues.length > 0) {
@@ -147,6 +161,17 @@ async function diagnoseSlackSetup() {
     }
     if (issues.some(i => i.includes('Bot is not a member'))) {
       logger.info('• Invite the bot to the channel using /invite @YourBotName');
+    }
+    if (issues.some(i => i.includes('Missing required scope'))) {
+      logger.info('• Go to Slack App settings → OAuth & Permissions → Scopes');
+      logger.info('• Add the following Bot Token Scopes:');
+      logger.info('  - channels:read (for public channels)');
+      logger.info('  - groups:read (for private channels)');
+      logger.info('  - im:read (for direct messages)');
+      logger.info('  - mpim:read (for group direct messages)');
+      logger.info('  - chat:write (for sending messages)');
+      logger.info('  - chat:write.public (for sending to channels the bot is not in)');
+      logger.info('• Reinstall the app to your workspace after adding the scopes');
     }
   } else {
     logger.info('\n🟢 All diagnostics passed! Your Slack setup appears to be working correctly.');

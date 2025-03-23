@@ -1,16 +1,13 @@
-// modules/state.js
+// state.js
+
 /**
  * Shared state management
  */
 
-// Storage for pending operations
+// Create shared Maps that will be imported by both the bot and webhook processes
+export const pendingSlackAcks = new Map();
 export const pendingForwards = new Map();
-export const pendingSlackAcknowledgments = new Map();
-
-// Message IDs for cleanup
 export const lastBotMessages = new Map();
-
-// Conversation state tracking
 export const conversationStates = new Map();
 
 // Menu types for consistent reference

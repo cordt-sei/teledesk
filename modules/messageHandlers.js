@@ -1,4 +1,4 @@
-// modules/messageHandler.js
+// modules/messageHandlers.js
 import { Markup } from 'telegraf';
 import axios from 'axios';
 import config from '../config.js';
@@ -14,10 +14,15 @@ import {
   showSupportMenu, 
   showForwardInstructions 
 } from './menus.js';
+import { sendToSlack } from './slackIntegration.js';
+import { pendingSlackAcks } from './state.js';
+import createLogger from './logger.js';
+
+// Initialize logger
+const logger = createLogger('messageHandlers');
 
 // Storage for pending operations
 export const pendingForwards = new Map();
-export const pendingSlackAcknowledgments = new Map();
 
 // Message IDs for cleanup
 export const lastBotMessages = new Map();
@@ -34,7 +39,7 @@ export async function cleanupPreviousMessages(chatId, bot) {
         await bot.telegram.deleteMessage(chatId, msgId);
       } catch (error) {
         // Ignore errors for message deletion (might be too old)
-        console.log(`Could not delete message ${msgId}: ${error.message}`);
+        logger.debug(`Could not delete message ${msgId}: ${error.message}`);
       }
     }
   }
@@ -57,7 +62,7 @@ export async function handleStart(ctx, bot) {
       // Team member welcome
       welcomeMessage = "Welcome to SEI Helpdesk 👋\n\n" +
         "As a team member, you can forward messages from other users or groups to Slack.\n\n" + 
-        "Simply forward any message to this bot, and it will be relayed to the team Slack channel for acknowledgment.";
+        "Forward any message here and it will be relayed to Slack channel for review.";
       
       keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
@@ -95,7 +100,7 @@ export async function handleStart(ctx, bot) {
     conversationStates.set(userId, { state: isTeamMember ? MENU.FORWARD : MENU.MAIN });
     
   } catch (error) {
-    console.error('Error sending welcome message:', error);
+    logger.error('Error sending welcome message:', error);
   }
 }
 
@@ -136,7 +141,7 @@ export async function handleHelp(ctx, bot) {
     
     lastBotMessages.set(ctx.chat.id, [helpMsg.message_id]);
   } catch (error) {
-    console.error('Error sending help message:', error);
+    logger.error('Error sending help message:', error);
   }
 }
 
@@ -289,56 +294,79 @@ export async function handleMessage(ctx, bot) {
     // Check if user is team member
     const isTeamMember = config.TEAM_MEMBERS.has(userId);
     
-    // Debugging logs
-    console.log('User ID:', userId, 'Type:', typeof userId);
-    console.log('Is in team members:', isTeamMember);
-    console.log('Team members contains:', [...config.TEAM_MEMBERS]);
-    
-    // Check if message is forwarded
-    const isForwarded = msg.forward_from || 
-                       msg.forward_from_chat || 
-                       msg.forward_sender_name || 
-                       msg.forward_date;
-    
-    console.log('Is forwarded message:', !!isForwarded);
-    console.log('Message forward properties:', { 
-      forward_from: msg.forward_from,
-      forward_from_chat: msg.forward_from_chat,
-      forward_sender_name: msg.forward_sender_name,
-      forward_date: msg.forward_date
+    // Enhanced logging
+    logger.debug('Processing message details:', {
+      userId: userId,
+      isTeamMember: isTeamMember,
+      forwarder: forwarder,
+      isForwarded: Boolean(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date),
+      forwardProperties: {
+        forward_from: msg.forward_from ? `${msg.forward_from.username || msg.forward_from.first_name}` : undefined,
+        forward_from_chat: msg.forward_from_chat ? `${msg.forward_from_chat.title || 'Chat'}` : undefined,
+        forward_sender_name: msg.forward_sender_name,
+        forward_date: msg.forward_date
+      }
     });
+    
+    // Check if message is forwarded - improved detection
+    const isForwarded = Boolean(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
     
     // Handle team member forwarding message
     if (isTeamMember && isForwarded) {
-      let forwardedFrom = null;
+      // Extract basic source information for logging
       let sourceType = "Unknown";
+      let sourceName = "";
+      let groupUrl = "";
       
       if (msg.forward_from_chat && msg.forward_from_chat.title) {
         // Group or channel message
-        forwardedFrom = msg.forward_from_chat.title;
-        sourceType = "Group";
+        sourceType = msg.forward_from_chat.type === 'channel' ? "Channel" : "Group";
+        sourceName = msg.forward_from_chat.title;
+        
+        // Try to get group username/URL if available
+        if (msg.forward_from_chat.username) {
+          groupUrl = `https://t.me/${msg.forward_from_chat.username}`;
+        }
       } else if (msg.forward_from) {
         // Individual user message
-        forwardedFrom = msg.forward_from.username || 
-                      msg.forward_from.first_name || 
-                      'Private User';
-        // Check if it's a bot
         sourceType = msg.forward_from.is_bot ? "Bot" : "User";
+        sourceName = msg.forward_from.username ? 
+                   `@${msg.forward_from.username}` : 
+                   msg.forward_from.first_name;
       } else if (msg.forward_sender_name) {
         // Private user that doesn't share their info
-        forwardedFrom = msg.forward_sender_name;
         sourceType = "User";
+        sourceName = msg.forward_sender_name;
       }
       
-      // Prompt for context
-      await ctx.reply(
-        `🔹 Detected source: ${sourceType}: ${forwardedFrom}\n\n` +
-        "Please confirm or provide additional context for this message " +
-        "(e.g., the conversation topic, channel name, or project):"
-      );
-      pendingForwards.set(userId, { originalMessage, forwarder, messageId, chatId });
-      conversationStates.set(userId, { state: 'awaiting_forward_source' });
+      logger.info(`Detected forwarded message from ${sourceType}: ${sourceName}`);
       
+      // Store the forwarded message info
+      pendingForwards.set(userId, { 
+        originalMessage, 
+        forwarder, 
+        messageId, 
+        chatId,
+        sourceInfo: {
+          type: sourceType,
+          name: sourceName,
+          url: groupUrl
+        }
+      });
+      
+      // Simple, intuitive prompt
+      const contextPrompt = await ctx.reply(
+        `Please provide any additional context that may be required.\n\nWhere is this from? (group/project/context)`
+      );
+      
+      // Save context prompt message ID for cleanup
+      const pendingInfo = pendingForwards.get(userId);
+      if (pendingInfo) {
+        pendingInfo.contextMsgId = contextPrompt.message_id;
+        pendingForwards.set(userId, pendingInfo);
+      }
+      
+      conversationStates.set(userId, { state: 'awaiting_forward_source' });
       return;
     }
     
@@ -348,21 +376,58 @@ export async function handleMessage(ctx, bot) {
       const userState = conversationStates.get(userId);
       
       if (userState && userState.state === 'awaiting_forward_source') {
-        // Assume it is a source for a previously forwarded message
         if (pendingForwards.has(userId)) {
           const forwardInfo = pendingForwards.get(userId);
-          await sendToSlack(
-            bot,
-            forwardInfo.originalMessage, 
-            forwardInfo.forwarder, 
-            originalMessage, 
-            forwardInfo.messageId, 
-            chatId
-          );
-          await ctx.reply("🟢 Message forwarded to Slack!");
-          pendingForwards.delete(userId);
-          conversationStates.delete(userId);
+          
+          // Store the context as provided without parsing
+          const context = originalMessage.trim();
+          
+          // Try to delete the context prompt message
+          try {
+            if (forwardInfo.contextMsgId) {
+              await bot.telegram.deleteMessage(chatId, forwardInfo.contextMsgId);
+            }
+          } catch (err) {
+            logger.debug('Could not delete context prompt message', err);
+          }
+          
+          // Send to Slack with source info and context
+          try {
+            // Create a simple context object
+            const sourceText = forwardInfo.sourceInfo.url ? 
+              `${forwardInfo.sourceInfo.type}: ${forwardInfo.sourceInfo.name} (${forwardInfo.sourceInfo.url})` :
+              `${forwardInfo.sourceInfo.type}: ${forwardInfo.sourceInfo.name}`;
+              
+            const contextInfo = {
+              source: sourceText,
+              context: context
+            };
+            
+            const slackMsgTs = await sendToSlack(
+              bot,
+              forwardInfo.originalMessage, 
+              forwardInfo.forwarder,
+              contextInfo,
+              forwardInfo.messageId, 
+              chatId
+            );
+            
+            logger.info(`Message sent to Slack with timestamp ${slackMsgTs}`);
+            
+            // Confirmation to user
+            await ctx.reply("Message forwarded to Slack!");
+            
+            pendingForwards.delete(userId);
+            conversationStates.delete(userId);
+          } catch (error) {
+            logger.error('Error sending to Slack:', error);
+            await ctx.reply("Error sending to Slack. Please try again.");
+          }
+        } else {
+          logger.warn(`User ${userId} in awaiting_forward_source state but no pending forward found`);
+          await ctx.reply("I couldn't find your previously forwarded message. Please try forwarding again.");
         }
+        return;
       } else {
         // Show team menu
         await ctx.reply(
@@ -432,7 +497,7 @@ export async function handleMessage(ctx, bot) {
       }, 1000);
     }
   } catch (error) {
-    console.error('Error processing message:', error);
+    logger.error('Error processing message:', error);
     try {
       await ctx.reply(
         "🔴 An error occurred while processing your message. Please try again.",
@@ -441,7 +506,7 @@ export async function handleMessage(ctx, bot) {
         ])
       );
     } catch (replyError) {
-      console.error('Could not send error message:', replyError);
+      logger.error('Could not send error message:', replyError);
     }
   }
 }
@@ -491,7 +556,7 @@ export async function handleTicketChoice(ctx, choice) {
     conversationStates.delete(userId);
     return true;
   } catch (error) {
-    console.error(`Error handling ticket choice: ${error}`);
+    logger.error(`Error handling ticket choice: ${error}`);
     await ctx.reply("🔴 There was an error processing your request. Please try again.");
     return false;
   }
@@ -611,77 +676,7 @@ export async function handleCallbackQuery(ctx, bot) {
         break;
     }
   } catch (error) {
-    console.error('Error handling callback query:', error);
+    logger.error('Error handling callback query:', error);
     await ctx.reply("🔴 An error occurred processing your request. Please try again.");
   }
-}
-
-// Send message to Slack with acknowledgment button
-export async function sendToSlack(bot, message, forwarder, forwardedFrom, messageId, chatId) {
-  const payload = {
-    channel: config.SLACK_CHANNEL_ID,
-    text: `📢 *Forwarded Message*\n\n📌 *From:* ${forwarder}\n🏷 *Group:* ${forwardedFrom || 'Unknown'}\n📝 *Message:* ${message}`,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `📢 *Forwarded Message*\n\n📌 *From:* ${forwarder}\n🏷 *Group:* ${forwardedFrom || 'Unknown'}\n📝 *Message:* ${message}`
-        }
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "Acknowledge"
-            },
-            style: "primary",
-            action_id: "acknowledge_forward",
-            value: `ack_${Date.now()}`
-          }
-        ]
-      }
-    ]
-  };
-
-  try {
-    const response = await axios.post('https://slack.com/api/chat.postMessage', payload, {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
-      }
-    });
-    
-    if (!response.data.ok) {
-      throw new Error(`Slack API error: ${response.data.error}`);
-    }
-    
-    const messageTs = response.data.ts;
-    
-    // Store pending acknowledgment info
-    pendingSlackAcknowledgments.set(messageTs, {
-      telegramChatId: chatId,
-      telegramMessageId: messageId,
-      forwarder,
-      timestamp: Date.now()
-    });
-    
-    await bot.telegram.sendMessage(
-      chatId,
-      "🟢 Message forwarded to Slack - status will update upon acknowledgment from the team."
-    );
-
-    return messageTs;
-  } catch (error) {
-    console.error('Error sending to Slack:', error.response?.data || error.message);
-    throw error;
-  }
-}
-
-// Helper function for webhook server to send acknowledgments
-export function sendTelegramAcknowledgment(bot, chatId, message) {
-  return bot.telegram.sendMessage(chatId, message);
 }

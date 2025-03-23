@@ -9,7 +9,8 @@ import {
   handleMessage,
   handleCallbackQuery
 } from './modules/messageHandlers.js';
-import { pendingSlackAcknowledgments } from './modules/state.js';
+import { pendingSlackAcks } from './modules/state.js';
+import { sendTgAck } from './modules/slackIntegration.js';
 import createLogger from './modules/logger.js';
 
 // Initialize logger
@@ -61,7 +62,7 @@ bot.on('message', ctx => {
     userId: ctx.from?.id,
     chatId: ctx.chat?.id,
     messageType: ctx.message.text ? 'text' : 'non-text',
-    isForwarded: !!(ctx.message.forward_from || ctx.message.forward_from_chat)
+    isForwarded: !!(ctx.message.forward_from || ctx.message.forward_from_chat || ctx.message.forward_sender_name || ctx.message.forward_date)
   });
   return handleMessage(ctx, bot);
 });
@@ -75,22 +76,26 @@ bot.on('callback_query', ctx => {
   return handleCallbackQuery(ctx, bot);
 });
 
-// Export the pendingSlackAcknowledgments for webhook server to access
-export { pendingSlackAcknowledgments };
-
-// Export a function for webhook server to send acknowledgments
-export function sendTelegramAcknowledgment(chatId, message) {
-  logger.info('Sending Telegram acknowledgment', { chatId });
-  return bot.telegram.sendMessage(chatId, message)
+// Helper function for webhook server to send ack
+function sendAck(chatId, message) {
+  logger.info('Sending Telegram ack from webhook server', { chatId });
+  return sendTgAck(bot, chatId, message)
     .then(result => {
-      logger.debug('Acknowledgment sent successfully', { messageId: result.message_id });
+      logger.debug('Ack sent successfully', { messageId: result.message_id });
       return result;
     })
-    .catch(error => {
-      logger.error('Error sending acknowledgment', error);
+    .catch((error) => {
+      logger.error('Error sending ack', error);
       throw error;
     });
 }
+
+// Log the state of pendingSlackAcks for debugging
+logger.debug('pendingSlackAcks in bot.js at startup:', {
+  isMap: pendingSlackAcks instanceof Map,
+  size: pendingSlackAcks.size,
+  keys: Array.from(pendingSlackAcks.keys())
+});
 
 // Bot initialization
 async function startBot() {
@@ -148,4 +153,5 @@ process.once('SIGTERM', () => {
   }
 });
 
+export { bot, pendingSlackAcks, sendAck };
 export default bot;

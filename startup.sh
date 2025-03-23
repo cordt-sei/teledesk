@@ -11,6 +11,19 @@ echo "Stopping any existing bot processes..."
 pm2 stop telegram-bot slack-webhook 2>/dev/null || true
 pm2 delete telegram-bot slack-webhook 2>/dev/null || true
 
+# Check if port 3030 is in use and kill those processes
+echo "Checking for processes using port 3030..."
+if command -v lsof >/dev/null 2>&1; then
+  PORT_PIDS=$(lsof -i :3030 -t 2>/dev/null)
+  if [ -n "$PORT_PIDS" ]; then
+    echo "Found processes using port 3030. Killing them..."
+    for PID in $PORT_PIDS; do
+      echo "Killing process $PID"
+      kill -9 $PID 2>/dev/null || true
+    done
+  fi
+fi
+
 # Also try to kill any stray node processes running the bot
 echo "Checking for stray processes..."
 pkill -f "node.*bot.js" || true

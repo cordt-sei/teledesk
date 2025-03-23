@@ -96,25 +96,23 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
     const messageTs = response.data.ts;
     logger.info(`Message sent to Slack successfully`, { messageTs, forwardId });
     
-    // Critical debugging - Log the state of pendingSlackAcks before storing
-    logger.debug('Current pendingSlackAcks state before adding new pending ack:', {
-      size: pendingSlackAcks.size,
-      keys: Array.from(pendingSlackAcks.keys())
-    });
-    
-    // Store pending Ack info
-    pendingSlackAcks.set(messageTs, {
+    // Store pending acknowledgment info with all required data
+    const pendingInfo = {
       telegramChatId: chatId,
       telegramMessageId: messageId,
       forwarder,
       timestamp: Date.now()
-    });
+    };
     
-    // Verify the pending ack was stored
+    // Store in the shared Map
+    pendingSlackAcks.set(messageTs, pendingInfo);
+    
+    // Log confirmations to verify storage
     logger.debug('pendingSlackAcks after storing:', {
       size: pendingSlackAcks.size,
       hasKey: pendingSlackAcks.has(messageTs),
-      keys: Array.from(pendingSlackAcks.keys())
+      keys: Array.from(pendingSlackAcks.keys()),
+      pendingInfo: pendingSlackAcks.get(messageTs)
     });
     
     // Send initial status message to Telegram
@@ -123,19 +121,16 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
       "Message forwarded to Slack - status will update upon Ack from the team."
     );
     
-    // Save the status message ID for later updates
-    const pendingInfo = pendingSlackAcks.get(messageTs);
-    if (pendingInfo) {
-      pendingInfo.statusMessageId = statusMsg.message_id;
-      pendingSlackAcks.set(messageTs, pendingInfo);
-      
-      // More debug logging
-      logger.debug('Updated pendingSlackAcks with status message ID:', {
-        messageTs,
-        statusMessageId: statusMsg.message_id,
-        pendingInfo: pendingSlackAcks.get(messageTs)
-      });
-    }
+    // Update the stored info with the status message ID
+    pendingInfo.statusMessageId = statusMsg.message_id;
+    pendingSlackAcks.set(messageTs, pendingInfo);
+    
+    // More debug logging to confirm update
+    logger.debug('Updated pendingSlackAcks with status message ID:', {
+      messageTs,
+      statusMessageId: statusMsg.message_id,
+      pendingInfo: pendingSlackAcks.get(messageTs)
+    });
 
     return messageTs;
   } catch (error) {

@@ -8,14 +8,14 @@
   "scripts": {
     "start": "bash startup.sh",
     "dev": "cross-env LOG_LEVEL=DEBUG concurrently \"cross-env BOT_PROCESS=true nodemon bot.js\" \"cross-env WEBHOOK_PROCESS=true nodemon modules/slackWebhook.js\"",
-    "dev:bot": "cross-env LOG_LEVEL=DEBUG BOT_PROCESS=true nodemon bot.js",
-    "dev:webhook": "cross-env LOG_LEVEL=DEBUG WEBHOOK_PROCESS=true nodemon modules/slackWebhook.js",
     "prod": "cross-env LOG_LEVEL=INFO concurrently \"cross-env BOT_PROCESS=true node bot.js\" \"cross-env WEBHOOK_PROCESS=true node modules/slackWebhook.js\"",
     "lint": "eslint .",
     "format": "prettier --write .",
     "validate": "node tests/validate-config.js",
-    "test:slack": "cross-env LOG_LEVEL=DEBUG node tests/test-slack.js",
-    "diagnose:slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
+    "test-slack": "cross-env LOG_LEVEL=DEBUG node tests/test-slack.js",
+    "verify-slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
+    "verify-webhook": "cross-env LOG_LEVEL=DEBUG node tests/diag-webhook.js",
+    "test-ack": "cross-env LOG_LEVEL=DEBUG node tests/test-ack.js",
     "clear-webhook": "node clear-webhook.js",
     "logs": "tail -f logs/$(date +%Y-%m-%d).log"
   },
@@ -30,6 +30,7 @@
   "devDependencies": {
     "concurrently": "^9.1.2",
     "eslint": "^8.57.0",
+    "net": "^1.0.2",
     "nodemon": "^3.0.2",
     "pm2": "^5.3.0",
     "prettier": "^3.1.0"

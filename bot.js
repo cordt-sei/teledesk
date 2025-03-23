@@ -9,12 +9,20 @@ import {
   handleMessage,
   handleCallbackQuery
 } from './modules/messageHandlers.js';
-import { pendingSlackAcks } from './modules/state.js';
+import { 
+  pendingSlackAcks, 
+  initializeState, 
+  setupShutdownHandlers 
+} from './modules/state.js';
 import { sendTgAck } from './modules/slackIntegration.js';
 import createLogger from './modules/logger.js';
 
 // Initialize logger
 const logger = createLogger('bot');
+
+// Initialize state persistence
+initializeState();
+setupShutdownHandlers();
 
 // Initialize the bot
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
@@ -75,20 +83,6 @@ bot.on('callback_query', ctx => {
   });
   return handleCallbackQuery(ctx, bot);
 });
-
-// Helper function for webhook server to send ack
-function sendAck(chatId, message) {
-  logger.info('Sending Telegram ack from webhook server', { chatId });
-  return sendTgAck(bot, chatId, message)
-    .then(result => {
-      logger.debug('Ack sent successfully', { messageId: result.message_id });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Error sending ack', error);
-      throw error;
-    });
-}
 
 // Log the state of pendingSlackAcks for debugging
 logger.debug('pendingSlackAcks in bot.js at startup:', {
@@ -153,5 +147,5 @@ process.once('SIGTERM', () => {
   }
 });
 
-export { bot, pendingSlackAcks, sendAck };
+export { bot, pendingSlackAcks, sendTgAck };
 export default bot;

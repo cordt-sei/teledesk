@@ -1,0 +1,6 @@
+{
+  "ignore": ["logs/*", "data/*", "node_modules/*", ".git/*"],
+  "ext": "js,mjs,json",
+  "watch": ["*.js", "modules/*.js", "config.js"],
+  "delay": 1000
+}

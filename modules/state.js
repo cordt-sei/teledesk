@@ -42,6 +42,7 @@ export async function loadPendingAcksFromDisk() {
       // Check if file exists
       try {
         await fs.access(pendingAcksFile);
+        logger.info('Found pendingAcks state file');
       } catch (err) {
         // File doesn't exist, create a new empty one
         await fs.writeFile(pendingAcksFile, '{}', { mode: 0o644 });

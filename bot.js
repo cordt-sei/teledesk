@@ -13,17 +13,18 @@ import {
   pendingSlackAcks, 
   initializeState, 
   setupShutdownHandlers,
-  savePendingAcksToDisk
+  savePendingAcksToDisk,
+  loadPendingAcksFromDisk
 } from './modules/state.js';
 import { sendTgAck } from './modules/slackIntegration.js';
-import { startReactionPolling } from './modules/slackPolling.js';
+import { startReactionPolling, checkForReactions } from './modules/slackPolling.js';
 import createLogger from './modules/logger.js';
 import axios from 'axios';
 
 // Initialize logger
 const logger = createLogger('bot');
 
-// Initialize state persistence
+// Initialize state persistence and load existing acknowledgments
 initializeState();
 setupShutdownHandlers();
 
@@ -99,6 +100,11 @@ async function startBot() {
     logger.debug('Waiting before launch...');
     await new Promise(resolve => setTimeout(resolve, 3000));
     
+    // Make sure we load existing pending acknowledgments before starting
+    logger.info('Loading pending acknowledgments from disk...');
+    await loadPendingAcksFromDisk();
+    logger.info(`Loaded ${pendingSlackAcks.size} pending acknowledgments`);
+    
     logger.info('Starting bot with custom polling parameters...');
     await bot.launch({
       polling: {
@@ -114,20 +120,20 @@ async function startBot() {
     // Start reaction polling immediately after bot has launched
     logger.info('Starting Slack reaction polling system...');
     pollingInterval = startReactionPolling(bot);
+    
     if (!pollingInterval) {
       logger.error('Failed to initialize Slack reaction polling - returned null interval');
     } else {
       logger.info('Successfully started reaction polling with interval ID: ' + pollingInterval);
-    }
-
-    // Verify that our polling is running by immediately running a manual check
-    try {
-      const { checkForReactions } = await import('./modules/slackPolling.js');
-      logger.info('Running immediate initial reaction check to verify polling is working...');
-      await checkForReactions(bot);
-      logger.info('Initial reaction check completed');
-    } catch (err) {
-      logger.error('Error running initial reaction check:', err);
+      
+      // Force an immediate manual check
+      logger.info('Running immediate manual reaction check...');
+      try {
+        await checkForReactions(bot);
+        logger.info('Manual reaction check completed');
+      } catch (err) {
+        logger.error('Error in manual reaction check:', err);
+      }
     }
     
     // Signal ready to PM2
@@ -209,6 +215,21 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled rejection in bot process', { reason, promise });
 });
+
+// Add debug command for reaction checking
+if (process.env.DEBUG_REACTIONS === 'true') {
+  logger.info('Debug mode enabled: adding manual reaction check command');
+  bot.command('checkreactions', async (ctx) => {
+    logger.info('Manual reaction check command received');
+    try {
+      await checkForReactions(bot);
+      await ctx.reply('Manual reaction check completed');
+    } catch (err) {
+      logger.error('Error in manual reaction check:', err);
+      await ctx.reply('Error in manual reaction check: ' + err.message);
+    }
+  });
+}
 
 // Only start the bot when explicitly enabled
 if (process.env.BOT_PROCESS === 'true') {

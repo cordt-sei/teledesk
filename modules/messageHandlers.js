@@ -60,17 +60,17 @@ export async function handleStart(ctx, bot) {
     
     if (isTeamMember) {
       // Team member welcome
-      welcomeMessage = "Welcome to SEI Helpdesk 👋\n\n" +
+      welcomeMessage = "Welcome to SEI Helpdesk \n\n" +
         "As a team member, you can forward messages from other users or groups to Slack.\n\n" + 
         "Forward any message here and it will be relayed to Slack channel for review.";
       
       keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
+        [Markup.button.callback(' How to Forward Messages', 'forward_instructions')],
         [Markup.button.callback('❓ Help / Commands', 'help')]
       ]);
     } else {
       // User welcome
-      welcomeMessage = "Welcome to SEI Helpdesk 👋\n\n" +
+      welcomeMessage = "Welcome to SEI Helpdesk \n\n" +
         "Send a brief but detailed description of the issue. " +
         "For the most effective support:\n\n" +
         "• Be specific about what is happening (or not happening), and in what scenario \n" +
@@ -115,7 +115,7 @@ export async function handleHelp(ctx, bot) {
     
     if (isTeamMember) {
       // Team help
-      helpText = "📚 *SEI Helpdesk Bot Commands (Team Member)*\n\n" +
+      helpText = " *SEI Helpdesk Bot Commands (Team Member)*\n\n" +
         "/start - Start or restart the bot\n" +
         "/help - Show this help message\n" +
         "/forward - Instructions for forwarding messages\n\n" +
@@ -123,7 +123,7 @@ export async function handleHelp(ctx, bot) {
         "Simply forward any message to this bot, and it will be relayed to the team Slack channel.";
     } else {
       // User help
-      helpText = "📚 *SEI Helpdesk Bot Commands*\n\n" +
+      helpText = " *SEI Helpdesk Bot Commands*\n\n" +
         "/start - Start or restart the bot\n" +
         "/menu - Show main menu options\n" +
         "/help - Show this help message\n" +
@@ -155,7 +155,7 @@ export async function handleTicketCommand(ctx, bot) {
       "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
       "If you need to create a support ticket, please use the regular support channels.",
       Markup.inlineKeyboard([
-        [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
+        [Markup.button.callback(' How to Forward Messages', 'forward_instructions')]
       ])
     );
     return;
@@ -191,7 +191,7 @@ export async function handleStatusCommand(ctx, bot) {
       "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
       "If you need to check a support ticket status, please use the regular support channels.",
       Markup.inlineKeyboard([
-        [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
+        [Markup.button.callback(' How to Forward Messages', 'forward_instructions')]
       ])
     );
     return;
@@ -432,7 +432,7 @@ export async function handleMessage(ctx, bot) {
         await ctx.reply(
           "To forward a message from a user or group, please use the Telegram forward feature.",
           Markup.inlineKeyboard([
-            [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
+            [Markup.button.callback(' How to Forward Messages', 'forward_instructions')]
           ])
         );
       }
@@ -497,7 +497,7 @@ export async function handleMessage(ctx, bot) {
       await ctx.reply(
         "🔴 An error occurred while processing your message. Please try again.",
         Markup.inlineKeyboard([
-          [Markup.button.callback('🔄 Start Over', 'main_menu')]
+          [Markup.button.callback(' Start Over', 'main_menu')]
         ])
       );
     } catch (replyError) {
@@ -575,7 +575,7 @@ export async function handleCallbackQuery(ctx, bot) {
         "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
         "If you need to create a support ticket, please use the regular support channels.",
         Markup.inlineKeyboard([
-          [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
+          [Markup.button.callback(' How to Forward Messages', 'forward_instructions')],
           [Markup.button.callback('« Back', 'main_menu')]
         ])
       );

@@ -35,50 +35,69 @@ export const MENU = {
 export async function loadPendingAcksFromDisk() {
   try {
     // Ensure data directory exists
-    await fs.mkdir(stateDir, { recursive: true }).catch(() => {});
+    await fs.mkdir(stateDir, { recursive: true });
+    logger.info('Data directory ensured');
     
     try {
       // Check if file exists
-      await fs.access(pendingAcksFile);
-    } catch (err) {
-      // File doesn't exist, create a new empty one
-      await fs.writeFile(pendingAcksFile, '{}');
-      logger.info('Created new pendingAcks state file');
-      return;
-    }
-    
-    // Read the file
-    const data = await fs.readFile(pendingAcksFile, 'utf8');
-    
-    if (!data || data.trim() === '') {
-      logger.warn('Empty pendingAcks file found, initializing with empty object');
-      await fs.writeFile(pendingAcksFile, '{}');
-      return;
-    }
-    
-    try {
-      const acks = JSON.parse(data);
-      
-      // Clear and fill map
-      pendingSlackAcks.clear();
-      for (const [key, value] of Object.entries(acks)) {
-        pendingSlackAcks.set(key, value);
+      try {
+        await fs.access(pendingAcksFile);
+      } catch (err) {
+        // File doesn't exist, create a new empty one
+        await fs.writeFile(pendingAcksFile, '{}', { mode: 0o644 });
+        logger.info('Created new pendingAcks state file');
+        return;
       }
       
-      logger.info(`Loaded ${pendingSlackAcks.size} pending acks from disk`, {
-        keys: Array.from(pendingSlackAcks.keys())
-      });
-    } catch (parseError) {
-      logger.error('Error parsing pendingAcks JSON, resetting file:', parseError);
-      await fs.writeFile(pendingAcksFile, '{}');
+      // Read the file
+      const data = await fs.readFile(pendingAcksFile, 'utf8');
+      
+      if (!data || data.trim() === '') {
+        logger.warn('Empty pendingAcks file found, initializing with empty object');
+        await fs.writeFile(pendingAcksFile, '{}', { mode: 0o644 });
+        return;
+      }
+      
+      try {
+        const acks = JSON.parse(data);
+        
+        // Clear and fill map
+        pendingSlackAcks.clear();
+        
+        // Filter out entries without required fields
+        let validCount = 0;
+        let invalidCount = 0;
+        
+        for (const [key, value] of Object.entries(acks)) {
+          if (value && value.telegramChatId) {
+            pendingSlackAcks.set(key, value);
+            validCount++;
+          } else {
+            invalidCount++;
+          }
+        }
+        
+        if (invalidCount > 0) {
+          logger.warn(`Filtered out ${invalidCount} invalid entries from pendingAcks.json`);
+        }
+        
+        logger.info(`Loaded ${validCount} pending acks from disk`, {
+          keys: Array.from(pendingSlackAcks.keys())
+        });
+      } catch (parseError) {
+        logger.error('Error parsing pendingAcks JSON, resetting file:', parseError);
+        await fs.writeFile(pendingAcksFile, '{}', { mode: 0o644 });
+      }
+    } catch (error) {
+      logger.error('Error loading pending acks from disk:', error);
+      try {
+        await fs.writeFile(pendingAcksFile, '{}', { mode: 0o644 });
+      } catch (writeError) {
+        logger.error('Failed to create empty pendingAcks file:', writeError);
+      }
     }
   } catch (error) {
-    logger.error('Error loading pending acks from disk:', error);
-    try {
-      await fs.writeFile(pendingAcksFile, '{}');
-    } catch (writeError) {
-      logger.error('Failed to create empty pendingAcks file:', writeError);
-    }
+    logger.error('Unexpected error in loadPendingAcksFromDisk:', error);
   }
 }
 
@@ -91,33 +110,13 @@ export async function savePendingAcksToDisk() {
       acks[key] = value;
     }
     
-    // Create a temporary file first
-    const tempFile = `${pendingAcksFile}.tmp`;
+    // Write directly without verification step
+    await fs.writeFile(pendingAcksFile, JSON.stringify(acks, null, 2), { 
+      mode: 0o644,
+      flag: 'w'
+    });
     
-    // Write to temporary file first
-    await fs.writeFile(tempFile, JSON.stringify(acks, null, 2));
-    
-    // Verify the file was written correctly
-    try {
-      const tempData = await fs.readFile(tempFile, 'utf8');
-      const parsed = JSON.parse(tempData);
-      
-      if (Object.keys(parsed).length !== pendingSlackAcks.size) {
-        logger.warn('Mismatch between temp file and memory state', {
-          fileSize: Object.keys(parsed).length,
-          memorySize: pendingSlackAcks.size
-        });
-        // Continue anyway - the data is still valid JSON
-      }
-      
-      // If verification passed, move the temp file to the real file
-      await fs.rename(tempFile, pendingAcksFile);
-      
-      logger.debug(`Saved ${pendingSlackAcks.size} pending acks to disk`);
-    } catch (verifyError) {
-      logger.error('Error verifying saved state file:', verifyError);
-      // Don't rename the temp file - something went wrong
-    }
+    logger.debug(`Saved ${pendingSlackAcks.size} pending acks to disk`);
   } catch (error) {
     logger.error('Error saving pending acks to disk:', error);
   }
@@ -135,11 +134,14 @@ export function initializeState() {
       logger.error('Error initializing state directory:', err);
     });
   
-  // Set up auto-save interval
+  // Set up auto-save interval with improved error handling
   setInterval(() => {
     savePendingAcksToDisk()
       .catch(err => logger.error('Auto-save error:', err));
   }, AUTO_SAVE_INTERVAL);
+  
+  // Extra: Check file permissions
+  fs.chmod(stateDir, 0o755).catch(() => {});
 }
 
 // Save state on exit

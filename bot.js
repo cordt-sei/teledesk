@@ -94,8 +94,6 @@ let pollingInterval;
 // Bot initialization
 async function startBot() {
   try {
-    logger.info('Clearing webhook and pending updates...');
-    await bot.telegram.deleteWebhook({ drop_pending_updates: true });
     
     logger.debug('Waiting before launch...');
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -106,7 +104,7 @@ async function startBot() {
     logger.info(`Loaded ${pendingSlackAcks.size} pending acknowledgments`);
     
     logger.info('Starting bot with custom polling parameters...');
-    await bot.launch({
+    bot.launch({
       polling: {
         timeout: 10,
         limit: 100,
@@ -149,7 +147,7 @@ async function startBot() {
 }
 
 // Get user's real name from their user ID
-async function getUserName(userId) {
+export async function getSlackUserName(userId) {
   try {
     const response = await axios.get(
       `https://slack.com/api/users.info?user=${encodeURIComponent(userId)}`,

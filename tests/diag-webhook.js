@@ -124,7 +124,7 @@ async function diagnoseWebhookIssues() {
           `https://api.telegram.org/bot${telegramToken}/sendMessage`,
           {
             chat_id: testChatId,
-            text: '🧪 This is a webhook diagnostic test message. If you see this, direct messaging is working.'
+            text: ' This is a webhook diagnostic test message. If you see this, direct messaging is working.'
           }
         );
         
@@ -134,7 +134,7 @@ async function diagnoseWebhookIssues() {
           issues.push('🔴 Failed to send test message to Telegram');
         }
       } else {
-        logger.info('⚠️ Skipping direct message test - no chat ID available');
+        logger.info('🟡️ Skipping direct message test - no chat ID available');
       }
     } catch (error) {
       issues.push(`🔴 Error sending test message to Telegram: ${error.message}`);

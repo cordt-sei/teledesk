@@ -81,6 +81,15 @@ app.get('/test', (req, res) => {
     res.send('Webhook server is running!');
 });
 
+// Health check endpoint for monitoring
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: Date.now()
+    });
+});
+
 // Debug endpoint to check pending Acks
 app.get('/debug-acks', (req, res) => {
     if (config.DEPLOY_ENV !== 'production') {
@@ -100,10 +109,45 @@ app.get('/debug-acks', (req, res) => {
     }
 });
 
-// Test endpoint for directly acknowledging messages
+// Simplified Slack interactions endpoint - only kept for compatibility
+app.post('/slack/interactions', (req, res) => {
+    logger.info('Received Slack interaction webhook - no longer used for acknowledgments');
+    
+    try {
+        // CRITICAL: IMMEDIATELY respond to Slack to avoid timeout
+        // We don't need to process anything anymore, just acknowledge
+        res.status(200).send('');
+        
+        // Optionally log the event type for debugging
+        try {
+            const rawBody = req.rawBody;
+            if (rawBody) {
+                if (req.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
+                    const params = new URLSearchParams(rawBody);
+                    if (params.has('payload')) {
+                        const payload = JSON.parse(params.get('payload'));
+                        logger.debug('Received unused interaction', { 
+                            type: payload.type,
+                            action: payload.actions?.[0]?.action_id
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            // Just log and ignore any parsing errors - we don't need this data
+            logger.debug('Could not parse interaction payload', error);
+        }
+    } catch (error) {
+        logger.error('Error in Slack interactions endpoint:', error);
+        // Still send 200 OK even if there's an error
+        res.status(200).send('');
+    }
+});
+
+// Test endpoint for directly acknowledging messages (kept as manual fallback)
 app.post('/test-acknowledge', async (req, res) => {
     try {
-        logger.info('Test acknowledge endpoint hit');
+        logger.info('Manual acknowledgment endpoint hit');
         logger.debug('Request body:', req.body);
         
         const { messageTs, chatId, userName } = req.body;
@@ -119,7 +163,7 @@ app.post('/test-acknowledge', async (req, res) => {
         // Use a fake message timestamp if not provided
         const finalMessageTs = messageTs || `test_${Date.now()}.${Math.floor(Math.random() * 1000)}`;
         
-        logger.info(`Processing test acknowledgment for chat ${chatId}`);
+        logger.info(`Processing manual acknowledgment for chat ${chatId}`);
         
         // Check if this message is in pending acks
         let statusMessageId = null;
@@ -192,7 +236,7 @@ app.post('/test-acknowledge', async (req, res) => {
                 telegramMessageId: telegramResponse.data.result?.message_id
             });
         } catch (error) {
-            logger.error('Error sending test acknowledgment:', error);
+            logger.error('Error sending manual acknowledgment:', error);
             res.status(500).json({ 
                 error: 'Failed to send acknowledgment', 
                 details: error.message 
@@ -204,269 +248,23 @@ app.post('/test-acknowledge', async (req, res) => {
     }
 });
 
-// Simplified Slack interactions endpoint
-app.post('/slack/interactions', (req, res) => {
-    logger.info('Received Slack interaction webhook');
-    
-    try {
-        // Process the raw body
-        const rawBody = req.rawBody;
-        
-        if (!rawBody) {
-            logger.error('No raw body available');
-            return res.status(200).send(''); // Always respond with 200 OK
-        }
-        
-        // Parse the payload quickly
-        let payload;
-        
-        if (req.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
-            const params = new URLSearchParams(rawBody);
-            if (params.has('payload')) {
-                try {
-                    payload = JSON.parse(params.get('payload'));
-                } catch (error) {
-                    logger.error('Error parsing payload:', error);
-                    return res.status(200).send(''); // Always respond with 200 OK
-                }
-            } else {
-                logger.error('No payload parameter in form data');
-                return res.status(200).send(''); // Always respond with 200 OK
-            }
-        } else if (req.headers['content-type']?.includes('application/json')) {
-            try {
-                payload = JSON.parse(rawBody);
-            } catch (error) {
-                logger.error('Error parsing JSON payload:', error);
-                return res.status(200).send(''); // Always respond with 200 OK
-            }
-        } else {
-            logger.error('Unsupported content type:', req.headers['content-type']);
-            return res.status(200).send(''); // Always respond with 200 OK
-        }
-        
-        // CRITICAL: IMMEDIATELY respond to Slack to avoid timeout
-        res.status(200).send('');
-        
-        // Process the payload asynchronously in the background
-        processSlackPayload(payload).catch(error => {
-            logger.error('Error processing Slack payload:', error);
-        });
-        
-    } catch (error) {
-        logger.error('Error in Slack interactions endpoint:', error);
-        res.status(200).send(''); // Always respond with 200 OK
-    }
-});
-
-// ===== HELPER FUNCTIONS =====
-/**
- * Process Slack payload
- */
-async function processSlackPayload(payload) {
-    try {
-        // Log significant payload details
-        logger.info('Processing Slack payload', { 
-            type: payload.type,
-            actionCount: payload.actions?.length,
-            user: payload.user?.username || payload.user?.name
-        });
-        
-        // Handle Acks using direct approach for Telegram
-        if (payload.type === 'block_actions' && 
-            payload.actions && 
-            payload.actions[0]?.action_id === 'acknowledge_forward') {
-            
-            const messageTs = payload.message.ts;
-            const userName = payload.user.username || payload.user.name || 'Unknown User';
-            const userId = payload.user.id;
-            
-            logger.info(`Processing acknowledgment from ${userName} for message ${messageTs}`);
-            
-            // Enhanced logging for debugging
-            logger.debug('Current pendingSlackAcks:', {
-                size: pendingSlackAcks.size,
-                keys: Array.from(pendingSlackAcks.keys()),
-                exactMatch: pendingSlackAcks.has(messageTs)
-            });
-            
-            // IMPORTANT: Return a 200 response immediately to avoid Slack timeouts
-            // The actual processing continues asynchronously
-            
-            // Check if we have pending ack info for this message
-            if (pendingSlackAcks.has(messageTs)) {
-                const pendingInfo = pendingSlackAcks.get(messageTs);
-                logger.debug('Found pending ack info', pendingInfo);
-                
-                // Verify we have the required information
-                if (!pendingInfo.telegramChatId) {
-                    logger.error('Missing telegramChatId in pending ack info');
-                    return;
-                }
-                
-                const chatId = pendingInfo.telegramChatId;
-                const statusMessageId = pendingInfo.statusMessageId;
-                
-                // Format timestamp for the message
-                const ackTime = new Date().toLocaleString();
-                const ackMessage = `🟢 Your forwarded message has been acknowledged by ${userName} at ${ackTime}.`;
-                
-                // Send ack to Telegram directly - this is our primary method
-                try {
-                    let telegramResponse;
-                    let messageWasSent = false;
-                    
-                    // First try to update existing status message if we have one
-                    if (statusMessageId) {
-                        try {
-                            telegramResponse = await axios.post(
-                                `https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}/editMessageText`,
-                                {
-                                    chat_id: chatId,
-                                    message_id: statusMessageId,
-                                    text: ackMessage
-                                }
-                            );
-                            
-                            if (telegramResponse.data.ok) {
-                                logger.info(`Successfully updated status message ${statusMessageId} for chat ${chatId}`);
-                                messageWasSent = true;
-                            } else {
-                                logger.warn('Failed to update status message', telegramResponse.data);
-                            }
-                        } catch (editError) {
-                            logger.warn('Error updating status message, falling back to new message:', editError.message);
-                        }
-                    }
-                    
-                    // If updating failed or we didn't have a status message ID, send a new message
-                    if (!messageWasSent) {
-                        try {
-                            telegramResponse = await axios.post(
-                                `https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}/sendMessage`,
-                                {
-                                    chat_id: chatId,
-                                    text: ackMessage
-                                }
-                            );
-                            
-                            if (telegramResponse.data.ok) {
-                                logger.info(`Successfully sent new ack message to chat ${chatId}`);
-                                messageWasSent = true;
-                            } else {
-                                logger.error('Failed to send new message', telegramResponse.data);
-                            }
-                        } catch (sendError) {
-                            logger.error('Error sending new message to Telegram:', sendError.message);
-                        }
-                    }
-                    
-                    // Update Slack message with acknowledge info
-                    try {
-                        await updateSlackMessageWithAck(
-                            payload.channel.id,
-                            messageTs,
-                            payload.message,
-                            userId,
-                            userName,
-                            !messageWasSent // Mark as fallback if Telegram messaging failed
-                        );
-                        logger.info('Updated Slack message with acknowledgment info');
-                    } catch (slackError) {
-                        logger.error('Error updating Slack message:', slackError.message);
-                    }
-                    
-                    // Remove from pending list regardless of outcome
-                    pendingSlackAcks.delete(messageTs);
-                    
-                    // Update the stored state
-                    await savePendingAcksToDisk();
-                    
-                    logger.info(`Finished processing ack for message ${messageTs}`);
-                } catch (error) {
-                    logger.error('Error during acknowledgment processing:', error);
-                }
-            } else {
-                logger.warn(`No pending Ack found for message ${messageTs}`);
-                
-                // Update Slack message anyway
-                try {
-                    await updateSlackMessageWithAck(
-                        payload.channel.id,
-                        messageTs,
-                        payload.message,
-                        userId,
-                        userName,
-                        true // Mark as fallback mode
-                    );
-                    logger.info('Updated Slack message, but no Telegram notification sent (no matching pending Ack)');
-                } catch (error) {
-                    logger.error('Error updating Slack message:', error);
-                }
-            }
-        } else {
-            logger.info('Ignoring non-acknowledgment payload', { 
-                type: payload.type,
-                actionId: payload.actions?.[0]?.action_id
-            });
-        }
-    } catch (error) {
-        logger.error('Error processing Slack payload:', error);
-    }
-}
-
-/**
- * Helper function to update Slack message with Ack info
- */
-async function updateSlackMessageWithAck(channelId, messageTs, originalMessage, userId, userName, isFallback = false) {
-  try {
-    // Keep original blocks but remove the action button
-    const originalBlocks = originalMessage.blocks || [];
-    const updatedBlocks = originalBlocks
-      .filter(block => block.type !== 'actions')
-      .concat([
-        {
-          type: "context",
-          elements: [
-            {
-              type: "mrkdwn",
-              text: `🟢 Acknowledged by <@${userId}> at ${new Date().toLocaleString()}${isFallback ? ' (no Telegram notification sent)' : ''}`
-            }
-          ]
-        }
-      ]);
-    
-    const response = await axios.post('https://slack.com/api/chat.update', {
-      channel: channelId,
-      ts: messageTs,
-      blocks: updatedBlocks
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
-      }
-    });
-    
-    if (!response.data.ok) {
-      throw new Error(`Slack API error: ${response.data.error}`);
-    }
-    
-    return true;
-  } catch (error) {
-    logger.error('Error updating Slack message:', error);
-    return false;
-  }
-}
-
 // ===== SERVER HANDLING =====
+let server;
+
 function startServer() {
     try {
-        // First try to detect if port is in use
-        const server = app.listen(PORT, '0.0.0.0', () => {
+        // Create the server
+        server = app.listen(PORT, '0.0.0.0', () => {
             logger.info(`Slack webhook handler listening on port ${PORT}`, {
                 testUrl: `http://localhost:${PORT}/test`,
-                interactionsUrl: `http://localhost:${PORT}/slack/interactions`
+                healthUrl: `http://localhost:${PORT}/health`
             });
+            
+            // Signal ready to PM2
+            if (process.send) {
+                process.send('ready');
+                logger.info('Sent ready signal to process manager');
+            }
         });
         
         // Add error handler
@@ -485,6 +283,32 @@ function startServer() {
     }
 }
 
+// shutdown handling
+function shutdownServer() {
+    return new Promise((resolve) => {
+        if (!server) {
+            logger.info('No server to shutdown');
+            return resolve();
+        }
+        
+        logger.info('Shutting down webhook server...');
+        server.close((err) => {
+            if (err) {
+                logger.error('Error closing server:', err);
+            } else {
+                logger.info('Server shutdown complete');
+            }
+            resolve();
+        });
+        
+        // Force close after timeout
+        setTimeout(() => {
+            logger.warn('Forcing server shutdown after timeout');
+            resolve();
+        }, 5000);
+    });
+}
+
 // Process uncaught exceptions
 process.on('uncaughtException', (err) => {
     logger.error('Uncaught exception', err);
@@ -494,6 +318,31 @@ process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled rejection', { reason, promise });
 });
 
+async function handleShutdown(signal) {
+    logger.info(`Received ${signal}, shutting down gracefully...`);
+    
+    try {
+        // Save state
+        await savePendingAcksToDisk();
+        logger.info('Saved pending acknowledgments');
+        
+        // Shutdown server
+        await shutdownServer();
+        
+        // Allow some time for cleanup before exiting
+        setTimeout(() => {
+            logger.info('Clean shutdown complete');
+            process.exit(0);
+        }, 1000);
+    } catch (err) {
+        logger.error('Error during shutdown:', err);
+        process.exit(1);
+    }
+}
+
+process.once('SIGINT', () => handleShutdown('SIGINT'));
+process.once('SIGTERM', () => handleShutdown('SIGTERM'));
+
 // Only start the server when explicitly enabled
 if (process.env.WEBHOOK_PROCESS === 'true') {
     logger.info('Starting webhook server');
@@ -502,4 +351,4 @@ if (process.env.WEBHOOK_PROCESS === 'true') {
     logger.info('Webhook server not started (WEBHOOK_PROCESS != true)');
 }
 
-export { app, startServer };
+export { app, startServer, shutdownServer };

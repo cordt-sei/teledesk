@@ -26,13 +26,13 @@ async function testSlackAck() {
     
     const response = await axios.post('https://slack.com/api/chat.postMessage', {
       channel: channelId,
-      text: "🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system.",
+      text: " *TEST MESSAGE* \n\nThis is an automated test of the Slack Ack system.",
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system."
+            text: " *TEST MESSAGE* \n\nThis is an automated test of the Slack Ack system."
           }
         },
         {
@@ -85,14 +85,14 @@ async function testSlackAck() {
       channel: { id: channelId, name: 'testchannel' },
       message: {
         type: 'message',
-        text: '🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system.',
+        text: ' *TEST MESSAGE* \n\nThis is an automated test of the Slack Ack system.',
         ts: messageTs,
         blocks: [
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: '🧪 *TEST MESSAGE* 🧪\n\nThis is an automated test of the Slack Ack system.'
+              text: ' *TEST MESSAGE* \n\nThis is an automated test of the Slack Ack system.'
             }
           },
           {

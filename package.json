@@ -1,6 +1,6 @@
 {
   "name": "teledesk",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Telegram bot to handle multiple support streams through custom Slack/Zendesk integrations",
   "main": "bot.js",
   "type": "module",
@@ -12,10 +12,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "validate": "node tests/validate-config.js",
-    "test-slack": "cross-env LOG_LEVEL=DEBUG node tests/test-slack.js",
-    "verify-slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
-    "verify-webhook": "cross-env LOG_LEVEL=DEBUG node tests/diag-webhook.js",
-    "test-ack": "cross-env LOG_LEVEL=DEBUG node tests/test-ack.js",
+    "test:slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
+    "test:webhook": "cross-env LOG_LEVEL=DEBUG node tests/test-webhook.js",
+    "test:reactions": "cross-env LOG_LEVEL=DEBUG node tests/test-reactions.js",
+    "diag:slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
+    "diag:webhook": "cross-env LOG_LEVEL=DEBUG node tests/diag-webhook.js",
     "clear-webhook": "node clear-webhook.js",
     "logs": "tail -f logs/$(date +%Y-%m-%d).log"
   },

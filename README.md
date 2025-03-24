@@ -4,15 +4,16 @@ A Telegram bot that forwards messages to Slack and manages support tickets via Z
 
 ## Features
 
-- **Team Workflow**: Forward messages from whitelisted Telegram users directly to Slack, with acknowledgment alerts
-- **Support Workflow**: Users can create and interact through Zendesk support tickets directly in Telegram
+- **Team Workflow**: Forward messages from any Telegram chat to Slack, with reaction-based acknowledgment alerts
+- **Support Workflow**: Users can create and interact with Zendesk support tickets directly in Telegram
 
 ## Architecture
 
 The application runs two separate Node.js processes:
 
 - **Bot Process**: Handles Telegram interactions and message forwarding
-- **Webhook Process**: Handles Slack interaction callbacks and acknowledgments
+- **Webhook Process**: Handles the web server for test endpoints and manual acknowledgments
+- **Reaction-Based Acknowledgment**: Uses polling to detect reactions on Slack messages for acknowledgments
 
 State is shared between processes through file-based persistence.
 
@@ -34,7 +35,7 @@ State is shared between processes through file-based persistence.
 4. Save the API token
 5. Set commands (optional): `/setcommands` → select your bot → paste:
 
-   ```sh
+   ```ini
    start - Start using the support bot
    help - Get help with using the bot
    menu - Show the main menu
@@ -48,18 +49,18 @@ State is shared between processes through file-based persistence.
 2. Click "Create New App" → "From scratch"
 3. Name your app and select your workspace
 4. Under "OAuth & Permissions" → "Scopes" → add Bot Token Scopes:
-   - `chat:write`
-   - `channels:read`
-   - `chat:write.public`
-   - `groups:read` (for private channels)
-   - `im:read` (for direct messages)
-   - `mpim:read` (for group direct messages)
+   - `chat:write` - Send messages
+   - `channels:read` - View channel info
+   - `chat:write.public` - Send to public channels  
+   - `groups:read` - View private channels
+   - `im:read` - View direct messages
+   - `mpim:read` - View group DMs
+   - `reactions:read` - View emoji reactions
+   - `users:read` - View user info
 5. Install the app to your workspace
 6. Copy the "Bot User OAuth Token" (starts with `xoxb-`)
 7. Under "Basic Information" → copy the "Signing Secret"
-8. Under "Interactivity & Shortcuts":
-   - Turn on Interactivity
-   - Set Request URL: `http://your-domain:3030/slack/interactions`
+8. Under "Socket Mode" → ensure it's OFF (we're using HTTP endpoints)
 9. Invite the bot to your designated channel with `/invite @YourBotName`
 
 ### 3. Zendesk Setup
@@ -92,17 +93,24 @@ State is shared between processes through file-based persistence.
 4. Edit the `.env` file with your credentials:
 
    ```ini
+   # Telegram Configuration
    TELEGRAM_BOT_TOKEN=your_telegram_token
+
+   # Slack Configuration
    SLACK_CHANNEL_ID=your_slack_channel_id
    SLACK_API_TOKEN=xoxb-your_slack_api_token
    SLACK_SIGNING_SECRET=your_slack_signing_secret
    SLACK_WEBHOOK_SERVER=http://your-domain:3030/slack/interactions
+
+   # Zendesk Configuration
    ZENDESK_API_URL=https://yourdomain.zendesk.com/api/v2
    ZENDESK_EMAIL=your_admin_email@example.com
    ZENDESK_API_TOKEN=your_zendesk_token
-   DEPLOY_ENV=development
+
+   # Application Configuration
+   DEPLOY_ENV=development  # Options: development, production
    PORT=3030
-   LOG_LEVEL=INFO
+   LOG_LEVEL=INFO  # Options: ERROR, WARN, INFO, DEBUG, TRACE
    ```
 
 5. Configure team members in `config.js`:
@@ -124,10 +132,6 @@ Start both the bot and webhook server:
 ```bash
 # Start both processes concurrently
 yarn dev
-
-# Or start them separately
-yarn dev:bot
-yarn dev:webhook
 ```
 
 ### Production Mode
@@ -136,14 +140,16 @@ yarn dev:webhook
 # Start in production mode with PM2
 yarn prod
 
-# Or using the startup script
+# Or using the startup script (recommended)
 ./startup.sh
 ```
 
 ### Using PM2 for Process Management
 
+PM2 configuration is provided in `ecosystem.config.cjs`:
+
 ```bash
-# Install PM2 globally
+# Install PM2 globally if needed
 yarn global add pm2
 
 # Start with PM2
@@ -158,7 +164,7 @@ pm2 save
 pm2 logs
 ```
 
-## Testing & Diagnostics
+### Testing & Diagnostics
 
 ### Validation Scripts
 
@@ -169,17 +175,56 @@ yarn validate
 # Test Slack integration
 yarn test:slack
 
+# Test webhook server
+yarn test:webhook
+
+# Test reactions acknowledgment system
+yarn test:reactions
+
 # Diagnose Slack issues
-yarn diagnose:slack
+yarn diag:slack
+
+# Diagnose webhook issues
+yarn diag:webhook
 ```
 
-### Webhook Debug Endpoint
+### Testing the Reaction-Based Acknowledgment System
 
-Check pending acknowledgments:
+The reaction-based acknowledgment system can be tested using the provided script:
 
-```sh
-http://your-host:3030/debug-acks
+```bash
+yarn test:reactions
 ```
+
+This interactive tool lets you:
+
+1. Create test messages in Slack with pendingAcks entries
+2. Add reactions to existing messages
+3. Check reactions on existing messages
+4. List all pending acknowledgments
+
+### Webhook Endpoints
+
+The webhook server provides several useful endpoints:
+
+- **Health Check**: Check server status
+
+  ```sh
+  http://your-host:3030/health
+  ```
+
+- **Debug Pending Acks**: View pending acknowledgments
+
+  ```sh
+  http://your-host:3030/debug-acks
+  ```
+
+- **Manual Acknowledgment**: Send a test acknowledgment
+
+  ```sh
+  POST http://your-host:3030/test-acknowledge
+  Body: { "chatId": "123456789", "userName": "Test User" }
+  ```
 
 ### View Logs
 
@@ -205,14 +250,31 @@ yarn clear-webhook
 node clear-webhook.js
 ```
 
-### Slack Issues
+### Server Won't Start
 
-If acknowledgments aren't working:
+If the server won't start due to port conflicts:
 
-1. Check the `data/pendingAcks.json` file for stored acknowledgments
-2. Verify the webhook server is running with `curl http://localhost:3030/test`
-3. Ensure Slack app interactivity URL points to your server
-4. Check that the Slack app has correct scopes and permissions
+```bash
+# Check what's using port 3030
+lsof -i :3030
+
+# Kill the process
+kill -15 <PID>
+```
+
+### Process Won't Stop
+
+If processes won't stop:
+
+```bash
+# Force stop PM2 processes
+pm2 delete telegram-bot slack-webhook
+
+# Find and kill any stray processes
+pgrep -f "node.*bot.js"
+pgrep -f "node.*slackWebhook.js"
+kill -9 <PID>
+```
 
 ## File Structure
 
@@ -221,11 +283,13 @@ If acknowledgments aren't working:
   - `logger.js` - Logging utilities
   - `messageHandlers.js` - Telegram message handling
   - `menus.js` - Telegram menu interfaces
-  - `slackIntegration.js` - Slack messaging and ack handling
-  - `slackWebhook.js` - Webhook server for Slack interactions
+  - `slackIntegration.js` - Slack messaging utilities
+  - `slackPolling.js` - Reaction-based acknowledgment system
+  - `slackWebhook.js` - Webhook server
   - `state.js` - Shared state management
   - `zendeskIntegration.js` - Zendesk ticket handling
 - `config.js` - Configuration and team member list
+- `ecosystem.config.cjs` - PM2 configuration
 - `data/` - State persistence directory
 - `logs/` - Application logs
 - `tests/` - Diagnostic tools
@@ -235,9 +299,9 @@ If acknowledgments aren't working:
 ### Team Member Workflow
 
 1. Forward a message from any chat to the bot
-2. Provide context about the source
-3. Message appears in Slack with Acknowledge button
-4. When clicked, the Telegram user receives confirmation
+2. Provide context about the source if needed
+3. Message appears in Slack with instructions to add a reaction for acknowledgment
+4. When a team member adds a reaction (like 👍 or ✅), the Telegram user receives confirmation
 
 ### Support Workflow
 

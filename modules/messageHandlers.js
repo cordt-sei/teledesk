@@ -80,8 +80,8 @@ export async function handleStart(ctx, bot) {
         "Our team will respond as soon as possible. Thank you!";
       
       keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('🎫 Support Ticket', 'new_ticket')],
-        [Markup.button.callback('📋 View Active Ticket', 'view_ticket')],
+        [Markup.button.callback(' Support Ticket', 'new_ticket')],
+        [Markup.button.callback(' View Active Ticket', 'view_ticket')],
         [Markup.button.callback('❓ Help / Commands', 'help')]
       ]);
     }
@@ -166,7 +166,7 @@ export async function handleTicketCommand(ctx, bot) {
   await cleanupPreviousMessages(ctx.chat.id, bot);
   
   const ticketMsg = await ctx.reply(
-    "🎫 *New Support Ticket*\n\n" +
+    " *New Support Ticket*\n\n" +
     "Please describe your issue in detail. Include any relevant information such as:\n" +
     "• What you were trying to do\n" +
     "• What happened instead\n" +
@@ -210,15 +210,15 @@ export async function checkTicketStatus(ctx, bot) {
   if (ticketInfo) {
     const statusMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      `📋 *Ticket #${ticketInfo.id} Status*\n\n` +
+      ` *Ticket #${ticketInfo.id} Status*\n\n` +
       `*Subject:* ${ticketInfo.subject}\n` +
       `*Status:* ${ticketInfo.status}\n` +
       `*Priority:* ${ticketInfo.priority}\n` +
       `*Created:* ${new Date(ticketInfo.created_at).toLocaleString()}\n\n` +
       `Our team is working on your ticket. You'll receive updates here.`,
       Markup.inlineKeyboard([
-        [Markup.button.callback('✏️ Add Information', 'add_info')],
-        [Markup.button.callback('🔍 Check Status', 'check_status')],
+        [Markup.button.callback(' Add Information', 'add_info')],
+        [Markup.button.callback(' Check Status', 'check_status')],
         [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
       ])
@@ -228,10 +228,10 @@ export async function checkTicketStatus(ctx, bot) {
   } else {
     const noTicketMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📋 *No Active Ticket*\n\n" +
+      " *No Active Ticket*\n\n" +
       "You don't have any active support tickets. Would you like to create one?",
       Markup.inlineKeyboard([
-        [Markup.button.callback('🎫 Create New Ticket', 'new_ticket')],
+        [Markup.button.callback(' Create New Ticket', 'new_ticket')],
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
       ])
     );
@@ -256,8 +256,8 @@ export async function handleCloseTicket(ctx, bot) {
       "Your support ticket has been marked as resolved. " +
       "Thank you for using SEI Helpdesk! If you need further assistance, you can create a new ticket anytime.",
       Markup.inlineKeyboard([
-        [Markup.button.callback('🎫 Support Ticket', 'new_ticket')],
-        [Markup.button.callback('📋 View Active Ticket', 'view_ticket')],
+        [Markup.button.callback(' Support Ticket', 'new_ticket')],
+        [Markup.button.callback(' View Active Ticket', 'view_ticket')],
         [Markup.button.callback('❓ Help / Commands', 'help')]
       ])
     );
@@ -270,8 +270,8 @@ export async function handleCloseTicket(ctx, bot) {
       "🔴 *Error Closing Ticket*\n\n" +
       "There was an issue closing your ticket. It might be already closed or there was a system error.",
       Markup.inlineKeyboard([
-        [Markup.button.callback('✏️ Add Information', 'add_info')],
-        [Markup.button.callback('🔍 Check Status', 'check_status')],
+        [Markup.button.callback(' Add Information', 'add_info')],
+        [Markup.button.callback(' Check Status', 'check_status')],
         [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
       ])
@@ -281,7 +281,7 @@ export async function handleCloseTicket(ctx, bot) {
   }
 }
 
-// Handle regular message from user
+// handle incoming messages telegram user
 export async function handleMessage(ctx, bot) {
   try {
     const msg = ctx.message;
@@ -356,7 +356,7 @@ export async function handleMessage(ctx, bot) {
       
       // Simple, intuitive prompt
       const contextPrompt = await ctx.reply(
-        `Please provide any additional context that may be required.\n\nWhere is this from? (group/project/context)`
+        `Please provide additional context if required.\n\n - Team / Project name\n - POC\n - Summary of issue`
       );
       
       // Save context prompt message ID for cleanup
@@ -414,8 +414,7 @@ export async function handleMessage(ctx, bot) {
             
             logger.info(`Message sent to Slack with timestamp ${slackMsgTs}`);
             
-            // Confirmation to user
-            await ctx.reply("Message forwarded to Slack!");
+            // No need for additional confirmation - the status message is already sent by sendToSlack
             
             pendingForwards.delete(userId);
             conversationStates.delete(userId);
@@ -479,10 +478,6 @@ export async function handleMessage(ctx, bot) {
           setTimeout(async () => {
             await showSupportMenu(ctx, bot);
           }, 1000);
-          return;
-          
-        case 'awaiting_forward_source':
-          // This should be handled above
           return;
       }
     }
@@ -602,7 +597,7 @@ export async function handleCallbackQuery(ctx, bot) {
         await ctx.deleteMessage();
         await bot.telegram.sendMessage(
           ctx.chat.id,
-          "🎫 *New Support Ticket*\n\n" +
+          " *New Support Ticket*\n\n" +
           "Please describe your issue in detail. Include any relevant information such as:\n" +
           "• What you were trying to do\n" +
           "• What happened instead\n" +
@@ -646,7 +641,7 @@ export async function handleCallbackQuery(ctx, bot) {
         await ctx.deleteMessage();
         await bot.telegram.sendMessage(
           ctx.chat.id,
-          "✏️ *Add Information to Ticket*\n\n" +
+          " *Add Information to Ticket*\n\n" +
           "Please type your additional information below. This will be added to your existing ticket.",
           Markup.inlineKeyboard([
             [Markup.button.callback('🔴 Cancel', 'cancel_update')]

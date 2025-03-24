@@ -2,14 +2,14 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import config from '../config.js';
-import { pendingSlackAcks } from './state.js';
+import { pendingSlackAcks, savePendingAcksToDisk } from './state.js';
 import createLogger from './logger.js';
 
 // Initialize logger
 const logger = createLogger('slackIntegration');
 
 /**
- * Send message to Slack with Ack button
+ * Send message to Slack with reaction-based acknowledgment
  * @param {Object} bot - Telegram bot instance
  * @param {string} message - Message text to forward
  * @param {string} forwarder - Username of the person forwarding
@@ -36,10 +36,7 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
     chatId
   });
   
-  // Create a unique ID for this message
-  const forwardId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  
-  // Build Slack message with clear sections
+  // Build Slack message with clear sections and reaction instructions
   const slackBlocks = [
     {
       type: "section",
@@ -56,21 +53,11 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
       }
     },
     {
-      type: "actions",
-      block_id: `ack_block_${forwardId}`,
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: "Acknowledge",
-            emoji: true
-          },
-          style: "primary",
-          action_id: "acknowledge_forward",
-          value: `ack_${forwardId}`
-        }
-      ]
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `_React with :white_check_mark: or :thumbsup: to acknowledge this message (the sender will be notified)._`
+      }
     }
   ];
   
@@ -96,7 +83,7 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
     }
     
     const messageTs = response.data.ts;
-    logger.info(`Message sent to Slack successfully`, { messageTs, forwardId });
+    logger.info(`Message sent to Slack successfully`, { messageTs });
     
     // Store pending acknowledgment info with all required data
     const pendingInfo = {
@@ -117,10 +104,10 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
       pendingInfo: pendingSlackAcks.get(messageTs)
     });
     
-    // Send initial status message to Telegram
+    // Send initial status message to Telegram - this is the only message we need
     const statusMsg = await bot.telegram.sendMessage(
       chatId,
-      "Message forwarded to Slack - status will update upon Ack from the team."
+      `Forwarded from ${sourceText}\nMessage forwarded to Slack - status will update when a team member acknowledges it.`
     );
     
     // Update the stored info with the status message ID
@@ -201,7 +188,7 @@ export function validateSlackRequest(req, slackSigningSecret) {
   const slackSignature = req.headers['x-slack-signature'];
   const timestamp = req.headers['x-slack-request-timestamp'];
   
-  // raw request body as set by middleware
+  // Raw request body as set by middleware
   const body = req.rawBody;
   
   if (!slackSignature || !timestamp || !body) {
@@ -213,7 +200,7 @@ export function validateSlackRequest(req, slackSigningSecret) {
     return false;
   }
   
-  // check timestamp for safety
+  // Check timestamp for safety
   const currentTime = Math.floor(Date.now() / 1000);
   if (Math.abs(currentTime - timestamp) > 300) {
     logger.error('🔴 Request timestamp too old:', { 
@@ -254,161 +241,4 @@ export function validateSlackRequest(req, slackSigningSecret) {
     logger.error('🔴 Error validating signature:', e);
     return false;
   }
-}
-
-/**
- * Handle Slack Ack button clicks
- * @param {Object} bot - Telegram bot instance
- * @param {Object} payload - Slack interaction payload
- * @returns {boolean} - Whether Ack was handled
- */
-// In slackIntegration.js, update the handleSlackAck function
-
-export async function handleSlackAck(bot, payload) {
-  try {
-    // Check if this is our acknowledge button
-    const action = payload.actions && payload.actions[0];
-    
-    // Log the entire payload for debugging
-    logger.debug('Full Slack payload received', JSON.stringify(payload, null, 2));
-    
-    logger.info('Processing Ack payload', { 
-      actionId: action?.action_id,
-      messageTs: payload.message?.ts,
-      user: payload.user?.name || payload.user?.username,
-      channelId: payload.channel?.id
-    });
-    
-    // Special handling for test messages
-    if (action && action.action_id === 'acknowledge_forward') {
-      const messageTs = payload.message.ts;
-      const userId = payload.user.id;
-      const userName = payload.user.username || payload.user.name;
-      
-      logger.info(`Ack received from ${userName}`, { messageTs, userId });
-      
-      // Debug dump of ALL pending Acks
-      logger.debug('Current pendingSlackAcks state', { 
-        size: pendingSlackAcks.size,
-        keys: Array.from(pendingSlackAcks.keys()),
-        containsKey: pendingSlackAcks.has(messageTs),
-        exactKeyToCheck: messageTs
-      });
-      
-      // Regular (non-test) Ack processing
-      if (pendingSlackAcks.has(messageTs)) {
-        const pendingInfo = pendingSlackAcks.get(messageTs);
-        logger.debug('Found pending ack info', pendingInfo);
-        
-        try {
-          // Format timestamp for the message
-          const ackTime = new Date().toLocaleString();
-          
-          // Send Ack back to Telegram
-          try {
-            if (pendingInfo.statusMessageId) {
-              // Try to update existing status message
-              await bot.telegram.editMessageText(
-                pendingInfo.telegramChatId,
-                pendingInfo.statusMessageId,
-                undefined,
-                `🟢 Your forwarded message has been acknowledged by ${userName} at ${ackTime}.`
-              );
-              logger.info('Successfully updated existing status message with Ack');
-            } else {
-              // Send as new message
-              const result = await bot.telegram.sendMessage(
-                pendingInfo.telegramChatId,
-                `🟢 Your forwarded message has been acknowledged by ${userName} at ${ackTime}.`
-              );
-              logger.info('Sent new Ack message to Telegram', { messageId: result.message_id });
-            }
-          } catch (telegramError) {
-            logger.error('Error sending Ack to Telegram:', telegramError);
-            // Fallback to sending a new message if editing fails
-            try {
-              const result = await bot.telegram.sendMessage(
-                pendingInfo.telegramChatId,
-                `🟢 Your forwarded message has been acknowledged by ${userName} at ${ackTime}.`
-              );
-              logger.info('Sent fallback Ack message to Telegram', { messageId: result.message_id });
-            } catch (fallbackError) {
-              logger.error('Error sending fallback Ack message:', fallbackError);
-            }
-          }
-          
-          // Update the Slack message to show who acknowledged it
-          logger.debug('Updating Slack message with Ack');
-          await updateSlackMessageWithAck(payload.channel.id, messageTs, payload.message, userId, userName);
-          
-          // Remove from pending list
-          pendingSlackAcks.delete(messageTs);
-          logger.info(`Ack processed successfully for message ${messageTs}`);
-          return true;
-        } catch (error) {
-          logger.error('Error processing regular Ack:', error);
-          return false;
-        }
-      } else {
-        logger.warn(`No pending Ack found for message ${messageTs}`);
-        
-        // Try to acknowledge it anyway as a fallback
-        try {
-          logger.debug('Updating Slack message with Ack (fallback)');
-          await updateSlackMessageWithAck(
-            payload.channel.id, 
-            messageTs, 
-            payload.message, 
-            userId, 
-            userName, 
-            true // Mark as fallback
-          );
-          
-          logger.info('Fallback Ack processed successfully');
-          return true;
-        } catch (error) {
-          logger.error('Error updating fallback message in Slack:', error);
-          return false;
-        }
-      }
-    } else {
-      logger.debug('Not an Ack action', { 
-        actionId: action?.action_id,
-        actionType: action?.type
-      });
-    }
-  } catch (error) {
-    logger.error('Error processing Ack:', error);
-  }
-  return false;
-}
-
-// Helper function to update Slack message with Ack
-async function updateSlackMessageWithAck(channelId, messageTs, originalMessage, userId, userName, isFallback = false) {
-  // Keep original blocks but remove the action button
-  const originalBlocks = originalMessage.blocks || [];
-  const updatedBlocks = originalBlocks
-    .filter(block => block.type !== 'actions')
-    .concat([
-      {
-        type: "context",
-        elements: [
-          {
-            type: "mrkdwn",
-            text: `🟢 Acknowledged by <@${userId}> at ${new Date().toLocaleString()}${isFallback ? ' (no Telegram notification sent)' : ''}`
-          }
-        ]
-      }
-    ]);
-  
-  await axios.post('https://slack.com/api/chat.update', {
-    channel: channelId,
-    ts: messageTs,
-    blocks: updatedBlocks
-  }, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.SLACK_API_TOKEN}`
-    }
-  });
 }

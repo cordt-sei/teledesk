@@ -1,9 +1,12 @@
-// tests/webhook-test.js
+// tests/test-webhook.js
 import axios from 'axios';
 import dotenv from 'dotenv';
 import readline from 'readline';
+import createLogger from '../modules/logger.js';
 
 dotenv.config();
+
+const logger = createLogger('webhookTester');
 
 // Create readline interface for user input
 const rl = readline.createInterface({
@@ -14,126 +17,122 @@ const rl = readline.createInterface({
 // Helper to ask questions
 const question = (query) => new Promise((resolve) => rl.question(query, resolve));
 
-async function testSlackWebhook() {
+async function testWebhook() {
   try {
-    console.log('Slack Webhook Diagnostic Tool');
-    console.log('============================');
+    logger.info('========================================');
+    logger.info(' Webhook Server Test Tool');
+    logger.info('========================================');
     
     // Get the webhook URL
     const webhookUrl = process.env.SLACK_WEBHOOK_SERVER || 'http://localhost:3030/slack/interactions';
-    console.log(`Using webhook endpoint: ${webhookUrl}`);
+    const baseUrl = webhookUrl.replace('/slack/interactions', '');
+    
+    logger.info(`Using webhook server: ${baseUrl}`);
     
     // First check if the server is running
     try {
-      const baseUrl = webhookUrl.replace('/slack/interactions', '');
       const testUrl = `${baseUrl}/test`;
-      console.log(`\nChecking if webhook server is running at ${testUrl}...`);
+      logger.info(`\nChecking if webhook server is running at ${testUrl}...`);
       
       const testResponse = await axios.get(testUrl, { timeout: 3000 });
-      console.log(`✅ Server is running: ${testResponse.data}`);
+      logger.info(`🟢 Server is running: ${testResponse.data}`);
     } catch (error) {
-      console.error(`❌ Server check failed: ${error.message}`);
+      logger.error(`🔴 Server check failed: ${error.message}`);
       if (error.code === 'ECONNREFUSED') {
-        console.log('The webhook server is not running. Start it with "yarn dev:webhook"');
+        logger.info('The webhook server is not running. Start it with "yarn dev" or "./startup.sh"');
       }
       rl.close();
       return;
     }
     
-    // Create a mock payload to simulate Slack's interactive message button click
-    const now = Math.floor(Date.now() / 1000);
-    const mockPayload = {
-      type: 'block_actions',
-      user: {
-        id: 'TEST_USER',
-        username: 'testuser',
-        name: 'Test User'
-      },
-      api_app_id: 'TEST_APP',
-      token: 'test_token',
-      trigger_id: `${Date.now()}.test`,
-      team: { id: 'TEST_TEAM', domain: 'testteam' },
-      channel: { id: process.env.SLACK_CHANNEL_ID || 'test-channel', name: 'testchannel' },
-      message: {
-        type: 'message',
-        text: 'Test Message',
-        ts: `${Date.now() / 1000}`,
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: 'Test Message'
-            }
-          },
-          {
-            type: 'actions',
-            elements: [
-              {
-                type: 'button',
-                text: {
-                  type: 'plain_text',
-                  text: 'Acknowledge'
-                },
-                action_id: 'acknowledge_forward'
-              }
-            ]
-          }
-        ]
-      },
-      actions: [
-        {
-          action_id: 'acknowledge_forward',
-          block_id: 'test_block',
-          text: {
-            type: 'plain_text',
-            text: 'Acknowledge'
-          },
-          type: 'button',
-          value: `test_ack_${Date.now()}`,
-          action_ts: `${now}`
+    logger.info('\nOptions:');
+    logger.info('1. Check server health');
+    logger.info('2. Check pending acknowledgments');
+    logger.info('3. Test manual acknowledgment (with chatId)');
+    logger.info('4. Exit');
+    
+    const choice = await question('\nEnter your choice (1-4): ');
+    
+    if (choice === '1') {
+      // Check server health
+      try {
+        const healthUrl = `${baseUrl}/health`;
+        logger.info(`\nChecking server health at ${healthUrl}...`);
+        
+        const response = await axios.get(healthUrl, { timeout: 3000 });
+        
+        logger.info('🟢 Server health check successful:');
+        logger.info(JSON.stringify(response.data, null, 2));
+      } catch (error) {
+        logger.error(`🔴 Health check failed: ${error.message}`);
+      }
+    } else if (choice === '2') {
+      // Check pending acknowledgments
+      try {
+        const acksUrl = `${baseUrl}/debug-acks`;
+        logger.info(`\nChecking pending acknowledgments at ${acksUrl}...`);
+        
+        const response = await axios.get(acksUrl, { timeout: 3000 });
+        
+        const acks = response.data;
+        if (acks.count === 0) {
+          logger.info('No pending acknowledgments found');
+        } else {
+          logger.info(`Found ${acks.count} pending acknowledgments:`);
+          acks.items.forEach((ack, index) => {
+            logger.info(`\n[${index + 1}] Message: ${ack.messageTs}`);
+            logger.info(`    Chat ID: ${ack.chatId}`);
+            logger.info(`    Created: ${ack.timestamp}`);
+            logger.info(`    Has Status Message: ${ack.hasStatusMessageId}`);
+          });
         }
-      ]
-    };
-    
-    const payloadStr = `payload=${encodeURIComponent(JSON.stringify(mockPayload))}`;
-    
-    console.log('\nSending mock Slack button click event...');
-    
-    try {
-      // Send with short timeout to test immediate response
-      const response = await axios.post(webhookUrl, payloadStr, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-Slack-Request-Timestamp': now.toString(),
-          'X-Slack-Signature': 'v0=test_signature' // Not used in dev mode
-        },
-        timeout: 3000 // Short timeout to test immediate response
-      });
-      
-      console.log(`\n✅ Server responded with status: ${response.status}`);
-      
-      if (response.status === 200) {
-        console.log('The webhook endpoint is responding correctly! Server acknowledged immediately.');
-        console.log('This confirms the fix is working - the server now processes the webhook asynchronously.');
-      } else {
-        console.log(`The server responded with an unexpected status code: ${response.status}`);
+      } catch (error) {
+        logger.error(`🔴 Failed to get pending acknowledgments: ${error.message}`);
+        if (error.response?.status === 403) {
+          logger.error('This endpoint is restricted in production mode');
+        }
       }
-    } catch (error) {
-      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-        console.error('❌ Webhook request timed out after 3 seconds');
-        console.log('This indicates the server is not responding quickly enough.');
-        console.log('Check that you have implemented the immediate response in the webhook endpoint.');
-      } else {
-        console.error(`❌ Webhook request failed: ${error.message}`);
+    } else if (choice === '3') {
+      // Test manual acknowledgment
+      const chatId = await question('\nEnter Telegram chat ID to send acknowledgment to: ');
+      if (!chatId) {
+        logger.warn('No chat ID provided. Exiting.');
+        rl.close();
+        return;
       }
+      
+      const userName = await question('Enter acknowledging user name (optional): ') || 'Test User';
+      
+      try {
+        const ackUrl = `${baseUrl}/test-acknowledge`;
+        logger.info(`\nSending manual acknowledgment to chat ${chatId}...`);
+        
+        const response = await axios.post(ackUrl, {
+          chatId: chatId,
+          userName: userName
+        }, { timeout: 5000 });
+        
+        if (response.data.success) {
+          logger.info('🟢 Manual acknowledgment sent successfully!');
+          logger.info(`Message ID: ${response.data.telegramMessageId}`);
+        } else {
+          logger.error(`🔴 Failed to send acknowledgment: ${response.data.error}`);
+        }
+      } catch (error) {
+        logger.error(`🔴 Request failed: ${error.message}`);
+        if (error.response?.data) {
+          logger.error(`Error details: ${JSON.stringify(error.response.data)}`);
+        }
+      }
+    } else {
+      logger.info('Exiting...');
     }
     
     rl.close();
   } catch (error) {
-    console.error('Unexpected error:', error);
+    logger.error('Unexpected error:', error);
     rl.close();
   }
 }
 
-testSlackWebhook();
+testWebhook();

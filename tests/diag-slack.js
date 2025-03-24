@@ -1,4 +1,4 @@
-// tests/diagnose-slack.js
+// tests/diag-slack.js
 import axios from 'axios';
 import dotenv from 'dotenv';
 import createLogger from '../modules/logger.js';
@@ -67,6 +67,39 @@ async function diagnoseSlackSetup() {
     
     if (authResponse.data.ok) {
       logger.info(`🟢 Slack API access confirmed (Team: ${authResponse.data.team}, User: ${authResponse.data.user})`);
+      
+      // Store bot user ID for later checks
+      const botUserId = authResponse.data.user_id;
+      
+      // Check scopes
+      logger.info('Checking API token scopes...');
+      const scopesResponse = await axios.get('https://slack.com/api/auth.test.scopes', {
+        headers: {
+          'Authorization': `Bearer ${slackToken}`
+        }
+      });
+      
+      if (scopesResponse.data.ok) {
+        const scopes = scopesResponse.data.scopes || [];
+        logger.info(`Found ${scopes.length} scopes: ${scopes.join(', ')}`);
+        
+        // Check for required scopes
+        const requiredScopes = [
+          'chat:write',
+          'channels:read',
+          'reactions:read',
+          'users:read'
+        ];
+        
+        const missingScopes = requiredScopes.filter(scope => !scopes.includes(scope));
+        if (missingScopes.length > 0) {
+          issues.push(`🔴 Missing required scopes: ${missingScopes.join(', ')}`);
+        } else {
+          logger.info('🟢 All required scopes are present');
+        }
+      } else {
+        logger.warn(`🟡️ Could not check scopes: ${scopesResponse.data.error}`);
+      }
     } else {
       issues.push(`🔴 Slack API access failed: ${authResponse.data.error}`);
     }
@@ -136,12 +169,102 @@ async function diagnoseSlackSetup() {
       issues.push(`🔴 Channel access test failed: ${error.message}`);
     }
   }
+
+  // Test reactions API access
+  logger.info('Testing reactions API access...');
+  try {
+    // Create a test message
+    const testMessageResponse = await axios.post('https://slack.com/api/chat.postMessage', {
+      channel: slackChannelId,
+      text: "Reaction test message (will be deleted)"
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${slackToken}`
+      }
+    });
+    
+    if (testMessageResponse.data.ok) {
+      const messageTs = testMessageResponse.data.ts;
+      logger.info('Test message sent, testing reactions.get API...');
+      
+      // Test reactions.get
+      const reactionsResponse = await axios.get('https://slack.com/api/reactions.get', {
+        params: {
+          channel: slackChannelId,
+          timestamp: messageTs
+        },
+        headers: {
+          'Authorization': `Bearer ${slackToken}`
+        }
+      });
+      
+      if (reactionsResponse.data.ok) {
+        logger.info('🟢 Successfully accessed reactions API');
+      } else {
+        if (reactionsResponse.data.error === 'missing_scope') {
+          issues.push('🔴 Missing required scope: "reactions:read"');
+          issues.push('   This scope is needed for the reaction-based acknowledgment system');
+        } else {
+          issues.push(`🔴 Cannot access reactions: ${reactionsResponse.data.error}`);
+        }
+      }
+      
+      // Delete the test message
+      await axios.post('https://slack.com/api/chat.delete', {
+        channel: slackChannelId,
+        ts: messageTs
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${slackToken}`
+        }
+      });
+    } else {
+      logger.error('Could not send test message for reactions check');
+    }
+  } catch (error) {
+    issues.push(`🔴 Reactions API test failed: ${error.message}`);
+  }
   
-  // Check interactivity settings
-  logger.info('To complete setup, ensure the following in your Slack App settings:');
-  logger.info('1. Interactivity is turned ON');
-  logger.info(`2. Request URL is set to ${webhookUrl}`);
-  logger.info('3. Bot has the required scopes: chat:write, channels:read, chat:write.public, groups:read, im:read');
+  // Check users API access for user name lookup
+  logger.info('Testing users API access for reactions acknowledgment...');
+  try {
+    // Get bot user ID
+    const authResponse = await axios.post('https://slack.com/api/auth.test', {}, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${slackToken}`
+      }
+    });
+    
+    if (authResponse.data.ok) {
+      const botUserId = authResponse.data.user_id;
+      
+      // Test users.info
+      const usersResponse = await axios.get('https://slack.com/api/users.info', {
+        params: {
+          user: botUserId
+        },
+        headers: {
+          'Authorization': `Bearer ${slackToken}`
+        }
+      });
+      
+      if (usersResponse.data.ok) {
+        logger.info('🟢 Successfully accessed users API');
+      } else {
+        if (usersResponse.data.error === 'missing_scope') {
+          issues.push('🔴 Missing required scope: "users:read"');
+          issues.push('   This scope is needed to get user names for acknowledgments');
+        } else {
+          issues.push(`🔴 Cannot access user info: ${usersResponse.data.error}`);
+        }
+      }
+    }
+  } catch (error) {
+    issues.push(`🔴 Users API test failed: ${error.message}`);
+  }
   
   // Summary
   if (issues.length > 0) {
@@ -167,6 +290,8 @@ async function diagnoseSlackSetup() {
       logger.info('• Add the following Bot Token Scopes:');
       logger.info('  - channels:read (for public channels)');
       logger.info('  - groups:read (for private channels)');
+      logger.info('  - reactions:read (for reaction-based acknowledgments)');
+      logger.info('  - users:read (for user name lookup in acknowledgments)');
       logger.info('  - im:read (for direct messages)');
       logger.info('  - mpim:read (for group direct messages)');
       logger.info('  - chat:write (for sending messages)');

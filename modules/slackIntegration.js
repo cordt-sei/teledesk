@@ -57,12 +57,14 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
     },
     {
       type: "actions",
+      block_id: `ack_block_${forwardId}`,
       elements: [
         {
           type: "button",
           text: {
             type: "plain_text",
-            text: "Acknowledge"
+            text: "Acknowledge",
+            emoji: true
           },
           style: "primary",
           action_id: "acknowledge_forward",
@@ -124,6 +126,9 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
     // Update the stored info with the status message ID
     pendingInfo.statusMessageId = statusMsg.message_id;
     pendingSlackAcks.set(messageTs, pendingInfo);
+    
+    // Save the state to disk immediately
+    await savePendingAcksToDisk();
     
     // More debug logging to confirm update
     logger.debug('Updated pendingSlackAcks with status message ID:', {

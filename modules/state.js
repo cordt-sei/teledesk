@@ -15,7 +15,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const stateDir = path.join(__dirname, '..', 'data');
 const pendingAcksFile = path.join(stateDir, 'pendingAcks.json');
 
-// Create shared Maps that will be imported by both the bot and webhook processes
+// auto-save interval for messages awaiting ack
+const AUTO_SAVE_INTERVAL = 10000; // 10 seconds
+
+// shared maps for bot + webhook
 export const pendingSlackAcks = new Map();
 export const pendingForwards = new Map();
 export const lastBotMessages = new Map();
@@ -38,7 +41,7 @@ export async function loadPendingAcksFromDisk() {
     try {
       await fs.access(pendingAcksFile);
     } catch (err) {
-      // File doesn't exist, create it
+      // File doesn't exist, create it with empty object
       await fs.writeFile(pendingAcksFile, '{}');
       logger.info('Created new pendingAcks state file');
       return;
@@ -46,23 +49,43 @@ export async function loadPendingAcksFromDisk() {
     
     // Load the file
     const data = await fs.readFile(pendingAcksFile, 'utf8');
-    const acks = JSON.parse(data);
     
-    // Clear and fill the Map
-    pendingSlackAcks.clear();
-    for (const [key, value] of Object.entries(acks)) {
-      pendingSlackAcks.set(key, value);
+    // Handle empty file case
+    if (!data || data.trim() === '') {
+      logger.warn('Empty pendingAcks file found, initializing with empty object');
+      await fs.writeFile(pendingAcksFile, '{}');
+      return;
     }
     
-    logger.info(`Loaded ${pendingSlackAcks.size} pending acks from disk`, {
-      keys: Array.from(pendingSlackAcks.keys())
-    });
+    try {
+      const acks = JSON.parse(data);
+      
+      // Clear and fill the Map
+      pendingSlackAcks.clear();
+      for (const [key, value] of Object.entries(acks)) {
+        pendingSlackAcks.set(key, value);
+      }
+      
+      logger.info(`Loaded ${pendingSlackAcks.size} pending acks from disk`, {
+        keys: Array.from(pendingSlackAcks.keys())
+      });
+    } catch (parseError) {
+      logger.error('Error parsing pendingAcks JSON, resetting file:', parseError);
+      // Reset the file if JSON is invalid
+      await fs.writeFile(pendingAcksFile, '{}');
+    }
   } catch (error) {
     logger.error('Error loading pending acks from disk:', error);
+    // Still create an empty file to prevent future errors
+    try {
+      await fs.writeFile(pendingAcksFile, '{}');
+    } catch (writeError) {
+      logger.error('Failed to create empty pendingAcks file:', writeError);
+    }
   }
 }
 
-// Save pending acks to disk
+// Save pending acks to disk with improved error handling
 export async function savePendingAcksToDisk() {
   try {
     // Convert Map to an object
@@ -71,25 +94,44 @@ export async function savePendingAcksToDisk() {
       acks[key] = value;
     }
     
-    // Write to file
+    // Write to file with proper formatting
     await fs.writeFile(pendingAcksFile, JSON.stringify(acks, null, 2));
     logger.debug(`Saved ${pendingSlackAcks.size} pending acks to disk`);
+    
+    // Verify write operation was successful
+    try {
+      const data = await fs.readFile(pendingAcksFile, 'utf8');
+      const parsed = JSON.parse(data);
+      if (Object.keys(parsed).length !== pendingSlackAcks.size) {
+        logger.warn('Mismatch between saved acks and memory state', {
+          fileSize: Object.keys(parsed).length,
+          memorySize: pendingSlackAcks.size
+        });
+      }
+    } catch (verifyError) {
+      logger.error('Error verifying saved state file:', verifyError);
+    }
   } catch (error) {
     logger.error('Error saving pending acks to disk:', error);
   }
 }
 
-// Setup auto-save interval (save every 10 seconds)
-const AUTO_SAVE_INTERVAL = 10000; // 10 seconds
-
-// Initialize auto-save
+// Initialize state more robustly
 export function initializeState() {
-  // First, load existing state
-  loadPendingAcksFromDisk();
+  // First, ensure the data directory exists
+  fs.mkdir(stateDir, { recursive: true })
+    .then(() => {
+      logger.info('Data directory ensured');
+      return loadPendingAcksFromDisk();
+    })
+    .catch(err => {
+      logger.error('Error initializing state directory:', err);
+    });
   
   // Set up auto-save interval
   setInterval(() => {
-    savePendingAcksToDisk();
+    savePendingAcksToDisk()
+      .catch(err => logger.error('Auto-save error:', err));
   }, AUTO_SAVE_INTERVAL);
 }
 

@@ -5,7 +5,7 @@ module.exports = {
       name: 'telegram-bot',
       script: 'bot.js',
       instances: 1,
-      autorestart: true,
+      autorestart: false,
       watch: false,
       max_memory_restart: '300M',
       env: {
@@ -22,15 +22,15 @@ module.exports = {
     },
     {
       name: 'slack-webhook',
-      script: 'modules/slackWebhook.js',  // Updated path!
+      script: 'modules/slackWebhook.js', 
       instances: 1,
-      autorestart: true,
+      autorestart: false,
       watch: false,
       max_memory_restart: '200M',
       env: {
         NODE_ENV: 'production',
         PORT: 3030,
-        WEBHOOK_PROCESS: 'true'  // Added to match our code
+        WEBHOOK_PROCESS: 'true'
       },
       dependency: ['telegram-bot']
     }

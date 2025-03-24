@@ -214,7 +214,7 @@ app.post('/slack/interactions', (req, res) => {
         
         if (!rawBody) {
             logger.error('No raw body available');
-            return res.status(400).send(''); // Quick error response
+            return res.status(200).send(''); // Always respond with 200 OK
         }
         
         // Parse the payload quickly
@@ -226,22 +226,26 @@ app.post('/slack/interactions', (req, res) => {
                 try {
                     payload = JSON.parse(params.get('payload'));
                 } catch (error) {
-                    return res.status(400).send(''); // Quick error response
+                    logger.error('Error parsing payload:', error);
+                    return res.status(200).send(''); // Always respond with 200 OK
                 }
             } else {
-                return res.status(400).send(''); // Quick error response
+                logger.error('No payload parameter in form data');
+                return res.status(200).send(''); // Always respond with 200 OK
             }
         } else if (req.headers['content-type']?.includes('application/json')) {
             try {
                 payload = JSON.parse(rawBody);
             } catch (error) {
-                return res.status(400).send(''); // Quick error response
+                logger.error('Error parsing JSON payload:', error);
+                return res.status(200).send(''); // Always respond with 200 OK
             }
         } else {
-            return res.status(400).send(''); // Quick error response
+            logger.error('Unsupported content type:', req.headers['content-type']);
+            return res.status(200).send(''); // Always respond with 200 OK
         }
         
-        // IMMEDIATELY respond to Slack to avoid timeout
+        // CRITICAL: IMMEDIATELY respond to Slack to avoid timeout
         res.status(200).send('');
         
         // Process the payload asynchronously in the background
@@ -251,13 +255,13 @@ app.post('/slack/interactions', (req, res) => {
         
     } catch (error) {
         logger.error('Error in Slack interactions endpoint:', error);
-        res.status(200).send(''); // Still respond to avoid Slack errors
+        res.status(200).send(''); // Always respond with 200 OK
     }
 });
 
 // ===== HELPER FUNCTIONS =====
 /**
- * Process a Slack payload
+ * Process Slack payload
  */
 async function processSlackPayload(payload) {
     try {
@@ -285,6 +289,9 @@ async function processSlackPayload(payload) {
                 keys: Array.from(pendingSlackAcks.keys()),
                 exactMatch: pendingSlackAcks.has(messageTs)
             });
+            
+            // IMPORTANT: Return a 200 response immediately to avoid Slack timeouts
+            // The actual processing continues asynchronously
             
             // Check if we have pending ack info for this message
             if (pendingSlackAcks.has(messageTs)) {

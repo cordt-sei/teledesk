@@ -56,7 +56,7 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `_React with :white_tick: or :thumbsup: to acknowledge this message (the sender will be notified)._`
+        text: `_React with :white_check_mark: or :thumbsup: to acknowledge this message (the sender will be notified)._`
       }
     }
   ];

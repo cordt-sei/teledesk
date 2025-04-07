@@ -1139,7 +1139,7 @@ function splitLargeText(text, maxLength) {
  * @param {Object} bot - Telegram bot instance
  * @param {string} query - Search query
  */
-export async function searchKnowledgeBase(ctx, bot, query) {
+export async function processKnowledgeBaseSearch(ctx, bot, query) {
   if (!query || query.trim().length < 3) {
     await ctx.reply("Please provide a search term of at least 3 characters.");
     return;

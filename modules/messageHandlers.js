@@ -11,11 +11,17 @@ import {
   handleSupportTicket,
   searchHelpCenter
 } from './zendeskIntegration.js';
-import {
+import { 
+  showMainMenu, 
+  showSupportMenu, 
+  showForwardInstructions,
+  showKnowledgeBaseMenu,
   showKnowledgeBaseCategories,
   showCategorySections,
   showSectionArticles,
-  showArticleDetails
+  showArticleDetails,
+  showFullArticleInTelegram,
+  processKnowledgeBaseSearch
 } from './menus.js';
 import { sendToSlack } from './slackIntegration.js';
 import { 
@@ -582,7 +588,7 @@ export async function handleMessage(ctx, bot) {
           
         case MENU.SEARCH:
           // handle search query
-          await searchKnowledgeBase(ctx, bot, originalMessage);
+          await processKnowledgeBaseSearch(ctx, bot, originalMessage);
           conversationStates.delete(userId);
           return;
       }

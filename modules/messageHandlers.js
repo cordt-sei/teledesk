@@ -11,11 +11,11 @@ import {
   handleSupportTicket,
   searchHelpCenter
 } from './zendeskIntegration.js';
-import { 
-  showMainMenu, 
-  showSupportMenu, 
-  showForwardInstructions,
-  showKnowledgeBaseMenu
+import {
+  showKnowledgeBaseCategories,
+  showCategorySections,
+  showSectionArticles,
+  showArticleDetails
 } from './menus.js';
 import { sendToSlack } from './slackIntegration.js';
 import { 
@@ -818,6 +818,88 @@ export async function handleCallbackQuery(ctx, bot) {
           await showSupportMenu(ctx, bot);
         }, 1000);
         break;
+
+      case 'knowledge_base':
+        await showKnowledgeBaseCategories(ctx, bot);
+        break;
+
+      case 'kb_categories':
+        await showKnowledgeBaseCategories(ctx, bot);
+        break;
+
+      case 'kb_search':
+        // Set state to search and show search prompt
+        updateUserState(userId, MENU.SEARCH);
+        await ctx.deleteMessage();
+        await MessageManager.sendMessage(
+          ctx.chat.id,
+          "🔍 *Search Knowledge Base*\n\n" +
+          "Please enter your search query below. Type a few keywords related to your question.",
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('« Back to Knowledge Base', 'kb_categories')]
+            ])
+          },
+          bot
+        );
+        break;
+
+      // Dynamic callback data handlers using regex
+      default:
+        // Category selection
+        if (action.match(/^kb_category_(\d+)$/)) {
+          const categoryId = action.match(/^kb_category_(\d+)$/)[1];
+          await showCategorySections(ctx, bot, categoryId);
+          break;
+        }
+        
+        // Section selection
+        if (action.match(/^kb_section_(\d+)$/)) {
+          const sectionId = action.match(/^kb_section_(\d+)$/)[1];
+          await showSectionArticles(ctx, bot, sectionId);
+          break;
+        }
+        
+        // Article selection
+        if (action.match(/^kb_article_(\d+)$/)) {
+          const articleId = action.match(/^kb_article_(\d+)$/)[1];
+          await showArticleDetails(ctx, bot, articleId);
+          break;
+        }
+        
+        // Force display article in Telegram
+        if (action.match(/^kb_force_article_(\d+)$/)) {
+          const articleId = action.match(/^kb_force_article_(\d+)$/)[1];
+          await showFullArticleInTelegram(ctx, bot, articleId);
+          break;
+        }
+
+        // Pagination for articles
+        if (action.match(/^kb_(prev|next)_articles_(\d+)$/)) {
+          const matches = action.match(/^kb_(prev|next)_articles_(\d+)$/);
+          const direction = matches[1];
+          const page = parseInt(matches[2]);
+          
+          const userState = conversationStates.get(userId);
+          if (userState && userState.sectionId) {
+            await showSectionArticles(ctx, bot, userState.sectionId, userState.sortBy || 'position', page);
+          } else {
+            await showKnowledgeBaseCategories(ctx, bot);
+          }
+          break;
+        }
+        
+        // Back to sections from article list
+        if (action === 'kb_back_to_sections') {
+          const userState = conversationStates.get(userId);
+          if (userState && userState.categoryId) {
+            await showCategorySections(ctx, bot, userState.categoryId);
+          } else {
+            await showKnowledgeBaseCategories(ctx, bot);
+          }
+          break;
+        }
     }
   } catch (error) {
     logger.error('Error handling callback query:', error);

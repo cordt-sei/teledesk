@@ -1,0 +1,20 @@
+# Node modules
+node_modules/
+
+# Build directories
+dist/
+build/
+
+# Data and logs
+data/
+logs/
+
+# Environment and config files
+.env
+.env.*
+
+# PM2 ecosystem config
+ecosystem.config.cjs
+
+# Other generated files
+coverage/

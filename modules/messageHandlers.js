@@ -1,6 +1,5 @@
 // modules/messageHandlers.js
 import { Markup } from 'telegraf';
-import axios from 'axios';
 import config from '../config.js';
 import { 
   getActiveTicket, 
@@ -8,8 +7,7 @@ import {
   addCommentToTicket, 
   closeTicket,
   reopenTicket,
-  handleSupportTicket,
-  searchHelpCenter
+  handleSupportTicket
 } from './zendeskIntegration.js';
 import { 
   showMainMenu, 

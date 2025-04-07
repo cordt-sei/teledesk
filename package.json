@@ -10,7 +10,9 @@
     "prod": "cross-env LOG_LEVEL=INFO BOT_PROCESS=true node bot.js",
     "start": "cross-env BOT_PROCESS=true node bot.js",
     "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "validate": "node tests/validate-config.js",
     "test:slack": "cross-env LOG_LEVEL=DEBUG node tests/diag-slack.js",
     "test:webhook": "cross-env LOG_LEVEL=DEBUG node tests/test-webhook.js",
@@ -32,10 +34,12 @@
     "telegraf": "^4.12.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.24.0",
     "concurrently": "^9.1.2",
-    "eslint": "^8.57.0",
+    "eslint": "^9.0.0",
+    "globals": "^16.0.0",
     "nodemon": "^3.0.2",
     "pm2": "^5.3.0",
-    "prettier": "^3.1.0"
+    "prettier": "^3.5.3"
   }
 }

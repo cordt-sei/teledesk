@@ -2,11 +2,14 @@
 import axios from 'axios';
 import { Markup } from 'telegraf';
 import config from '../config.js';
+import createLogger from './logger.js';
 
-// Active support tickets by user ID
+const logger = createLogger('zendeskIntegration');
+
+// active tickets by user ID
 const activeTickets = new Map();
 
-// Handle support ticket creation or updates
+// ticket creation or updates
 export async function handleSupportTicket(ctx, isUpdate = false, forceNew = false) {
   try {
     const userId = ctx.from.id;
@@ -84,7 +87,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
       }
     }
   } catch (error) {
-    console.error('Error handling support ticket:', error);
+    logger.error('Error creating support ticket:', error);
     await ctx.reply(
       "🔴 There was an issue processing your support request. Please try again later."
     );
@@ -95,7 +98,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
 // Get active ticket information
 export async function getActiveTicket(userId) {
   try {
-    // If we have the ticket ID cached, get the ticket details
+    // if ticket ID in cache, get details
     const cachedTicketId = activeTickets.get(userId);
     
     if (cachedTicketId) {
@@ -138,7 +141,7 @@ export async function getActiveTicket(userId) {
     
     return null;
   } catch (error) {
-    console.error('Error getting active ticket:', error);
+    logger.error('Error getting active ticket:', error);
     return null;
   }
 }
@@ -176,7 +179,7 @@ export async function closeTicket(userId) {
     
     return true;
   } catch (error) {
-    console.error('Error closing ticket:', error);
+    logger.error('Error closing ticket:', error);
     return false;
   }
 }
@@ -184,7 +187,7 @@ export async function closeTicket(userId) {
 // Create a new Zendesk ticket
 export async function createZendeskTicket(description, username, userId, severity = 'Normal', severityTag = 'priority_normal') {
   try {
-    console.log(`Creating Zendesk ticket for ${username} with severity ${severity}`);
+    logger.info(`Creating Zendesk ticket for ${username} with severity ${severity}`);
     
     const response = await axios.post(
       `${config.ZENDESK_API_URL}/tickets.json`,
@@ -211,7 +214,7 @@ export async function createZendeskTicket(description, username, userId, severit
     );
     
     const ticketId = response.data.ticket.id;
-    console.log(`Zendesk ticket created: ${ticketId}`);
+    logger.info(`Zendesk ticket created: ${ticketId}`);
     
     // Cache the ticket
     activeTickets.set(userId, ticketId);
@@ -221,8 +224,8 @@ export async function createZendeskTicket(description, username, userId, severit
     
     return ticketId;
   } catch (error) {
-    console.error('Error creating Zendesk ticket:', error);
-    console.error('Response data:', error.response?.data);
+    logger.error('Error creating Zendesk ticket:', error);
+    logger.error('Response data:', error.response?.data);
     throw error;
   }
 }
@@ -250,8 +253,51 @@ export async function addCommentToTicket(ticketId, comment, username) {
     
     return true;
   } catch (error) {
-    console.error('Error adding comment to Zendesk ticket:', error.response?.data || error.message);
+    logger.error('Error adding comment to Zendesk ticket:', error.response?.data || error.message);
     throw error;
+  }
+}
+
+// Get Help Center categories
+export async function getHelpCenterCategories() {
+  try {
+    const response = await axios.get(
+      `${config.ZENDESK_API_URL.replace('/api/v2', '')}/api/v2/help_center/categories.json`,
+      {
+        auth: {
+          username: `${config.ZENDESK_EMAIL}/token`,
+          password: config.ZENDESK_API_TOKEN
+        }
+      }
+    );
+    
+    return response.data.categories;
+  } catch (error) {
+    logger.error('Error fetching Help Center categories:', error);
+    return [];
+  }
+}
+
+// Search the Help Center
+export async function searchHelpCenter(query) {
+  try {
+    const response = await axios.get(
+      `${config.ZENDESK_API_URL.replace('/api/v2', '')}/api/v2/help_center/articles/search.json`,
+      {
+        params: {
+          query: query
+        },
+        auth: {
+          username: `${config.ZENDESK_EMAIL}/token`,
+          password: config.ZENDESK_API_TOKEN
+        }
+      }
+    );
+    
+    return response.data.results;
+  } catch (error) {
+    logger.error('Error searching Help Center:', error);
+    return [];
   }
 }
 
@@ -260,12 +306,12 @@ export async function notifySlackOfNewTicket(ticketId, username, description, se
   try {
     // Validate the Slack channel and token before sending
     if (!config.SLACK_CHANNEL_ID) {
-      console.error('Slack channel ID not configured. Skipping notification.');
+      logger.error('Slack channel ID not configured. Skipping notification.');
       return;
     }
     
     if (!config.SLACK_API_TOKEN) {
-      console.error('Slack API token not configured. Skipping notification.');
+      logger.error('Slack API token not configured. Skipping notification.');
       return;
     }
     
@@ -321,22 +367,22 @@ export async function notifySlackOfNewTicket(ticketId, username, description, se
       }
     });
     
-    console.log('Slack notification result:', response.data);
+    logger.info('Slack notification result:', response.data);
     
     if (!response.data.ok) {
-      console.error('Slack API error:', response.data.error);
+      logger.error('Slack API error:', response.data.error);
       
       // Handle specific error cases
       if (response.data.error === 'not_allowed_token_type') {
-        console.error('The Slack token being used appears to be an incorrect type. Please use a bot token starting with xoxb-');
+        logger.error('The Slack token being used appears to be an incorrect type. Please use a bot token starting with xoxb-');
       } else if (response.data.error === 'channel_not_found') {
-        console.error(`Channel ID ${config.SLACK_CHANNEL_ID} not found. Please check your channel ID.`);
+        logger.error(`Channel ID ${config.SLACK_CHANNEL_ID} not found. Please check your channel ID.`);
       }
     }
     
     return response.data.ok;
   } catch (error) {
-    console.error('Error notifying Slack of new ticket:', error.response?.data || error.message);
+    logger.error('Error notifying Slack of new ticket:', error.response?.data || error.message);
     return false;
   }
 }

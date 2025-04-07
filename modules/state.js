@@ -28,7 +28,13 @@ export const conversationStates = new Map();
 export const MENU = {
   MAIN: 'main_menu',
   SUPPORT: 'support_menu',
-  FORWARD: 'forward_menu'
+  FORWARD: 'forward_menu',
+  KNOWLEDGE_BASE: 'knowledge_base',
+  SEARCH: 'search_menu',
+  AWAITING_TICKET_DESCRIPTION: 'awaiting_ticket_description',
+  AWAITING_TICKET_UPDATE: 'awaiting_ticket_update',
+  AWAITING_TICKET_CHOICE: 'awaiting_ticket_choice',
+  AWAITING_FORWARD_SOURCE: 'awaiting_forward_source'
 };
 
 // load pending acks

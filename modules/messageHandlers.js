@@ -7,38 +7,37 @@ import {
   createZendeskTicket, 
   addCommentToTicket, 
   closeTicket,
-  handleSupportTicket 
+  handleSupportTicket,
+  searchHelpCenter
 } from './zendeskIntegration.js';
 import { 
   showMainMenu, 
   showSupportMenu, 
-  showForwardInstructions 
+  showForwardInstructions,
+  showKnowledgeBaseMenu,
+  searchKnowledgeBase
 } from './menus.js';
 import { sendToSlack } from './slackIntegration.js';
-import { pendingSlackAcks } from './state.js';
+import { MENU, conversationStates, lastBotMessages, pendingSlackAcks } from './state.js';
 import createLogger from './logger.js';
 
-// Initialize logger
+// init logger
 const logger = createLogger('messageHandlers');
 
-// Storage for pending operations
+// pending operations stored
 export const pendingForwards = new Map();
 
-// Message IDs for cleanup
-export const lastBotMessages = new Map();
-export const conversationStates = new Map();
-
-// Clean up previous bot messages
+// clean up bot messages
 export async function cleanupPreviousMessages(chatId, bot) {
   const previousMessages = lastBotMessages.get(chatId);
   
   if (previousMessages && previousMessages.length > 0) {
-    // Delete previous menus/prompts to avoid cluttering the chat
+    // remove previous menus/prompts
     for (const msgId of previousMessages) {
       try {
         await bot.telegram.deleteMessage(chatId, msgId);
       } catch (error) {
-        // Ignore errors for message deletion (might be too old)
+        // ignore errors for message deletion (most likely too old)
         logger.debug(`Could not delete message ${msgId}: ${error.message}`);
       }
     }
@@ -60,19 +59,19 @@ export async function handleStart(ctx, bot) {
     
     if (isTeamMember) {
       // Team member welcome
-      welcomeMessage = "Welcome to SEI Helpdesk \n\n" +
+      welcomeMessage = "👋 *Welcome to SEI Helpdesk* \n\n" +
         "As a team member, you can forward messages from other users or groups to Slack.\n\n" + 
         "Forward any message here and it will be relayed to Slack channel for review.";
       
       keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback(' How to Forward Messages', 'forward_instructions')],
+        [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
         [Markup.button.callback('❓ Help / Commands', 'help')]
       ]);
     } else {
       // User welcome
-      welcomeMessage = "Welcome to SEI Helpdesk \n\n" +
-        "Send a brief but detailed description of the issue. " +
-        "For the most effective support:\n\n" +
+      welcomeMessage = "👋 *Welcome to SEI Helpdesk* \n\n" +
+        "You can browse our Knowledge Base for self-help resources or create a support ticket.\n\n" +
+        "For the most effective support when creating a ticket:\n\n" +
         "• Be specific about what is happening (or not happening), and in what scenario \n" +
         "• Include any error messages\n" +
         "• Any solutions you've tried\n" +
@@ -80,23 +79,21 @@ export async function handleStart(ctx, bot) {
         "Our team will respond as soon as possible. Thank you!";
       
       keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback(' Support Ticket', 'new_ticket')],
-        [Markup.button.callback(' View Active Ticket', 'view_ticket')],
+        [Markup.button.callback('📚 Knowledge Base', 'knowledge_base')],
+        [Markup.button.callback('📝 Create Support Ticket', 'new_ticket')],
         [Markup.button.callback('❓ Help / Commands', 'help')]
       ]);
     }
     
-    const welcomeMsg = await ctx.reply(welcomeMessage, keyboard);
+    const welcomeMsg = await ctx.reply(welcomeMessage, {
+      parse_mode: 'Markdown',
+      ...keyboard
+    });
     
     // Save message ID for cleanup
     lastBotMessages.set(ctx.chat.id, [welcomeMsg.message_id]);
     
     // Set initial state
-    const MENU = {
-      MAIN: 'main_menu',
-      SUPPORT: 'support_menu',
-      FORWARD: 'forward_menu'
-    };
     conversationStates.set(userId, { state: isTeamMember ? MENU.FORWARD : MENU.MAIN });
     
   } catch (error) {
@@ -115,15 +112,15 @@ export async function handleHelp(ctx, bot) {
     
     if (isTeamMember) {
       // Team help
-      helpText = " *SEI Helpdesk Bot Commands (Team Member)*\n\n" +
+      helpText = "❓ *SEI Helpdesk Bot Commands (Team Member)*\n\n" +
         "/start - Start or restart the bot\n" +
         "/help - Show this help message\n" +
-        "/forward - Instructions for forwarding messages\n\n" +
+        "/menu - Show main menu\n\n" +
         "As a team member, this bot helps you forward messages from other users/groups to Slack. " +
         "Simply forward any message to this bot, and it will be relayed to the team Slack channel.";
     } else {
       // User help
-      helpText = " *SEI Helpdesk Bot Commands*\n\n" +
+      helpText = "❓ *SEI Helpdesk Bot Commands*\n\n" +
         "/start - Start or restart the bot\n" +
         "/menu - Show main menu options\n" +
         "/help - Show this help message\n" +
@@ -132,14 +129,15 @@ export async function handleHelp(ctx, bot) {
         "You can also use the menu buttons below for navigation.";
     }
     
-    const helpMsg = await ctx.reply(
-      helpText,
-      Markup.inlineKeyboard([
+    const helpMsg = await ctx.reply(helpText, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
       ])
-    );
+    });
     
     lastBotMessages.set(ctx.chat.id, [helpMsg.message_id]);
+    conversationStates.set(ctx.from.id, { state: MENU.MAIN });
   } catch (error) {
     logger.error('Error sending help message:', error);
   }
@@ -155,27 +153,30 @@ export async function handleTicketCommand(ctx, bot) {
       "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
       "If you need to create a support ticket, please use the regular support channels.",
       Markup.inlineKeyboard([
-        [Markup.button.callback(' How to Forward Messages', 'forward_instructions')]
+        [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
       ])
     );
     return;
   }
   
-  conversationStates.set(userId, { state: 'awaiting_ticket_description' });
+  conversationStates.set(userId, { state: MENU.AWAITING_TICKET_DESCRIPTION });
   
   await cleanupPreviousMessages(ctx.chat.id, bot);
   
   const ticketMsg = await ctx.reply(
-    " *New Support Ticket*\n\n" +
+    "📝 *New Support Ticket*\n\n" +
     "Please describe your issue in detail. Include any relevant information such as:\n" +
     "• What you were trying to do\n" +
     "• What happened instead\n" +
     "• Any error messages\n" +
     "• Steps you've already taken\n\n" +
     "Your next message will be used to create the ticket.",
-    Markup.inlineKeyboard([
-      [Markup.button.callback('🔴 Cancel', 'cancel_ticket')]
-    ])
+    {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🔴 Cancel', 'cancel_ticket')]
+      ])
+    }
   );
   
   lastBotMessages.set(ctx.chat.id, [ticketMsg.message_id]);
@@ -191,7 +192,7 @@ export async function handleStatusCommand(ctx, bot) {
       "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
       "If you need to check a support ticket status, please use the regular support channels.",
       Markup.inlineKeyboard([
-        [Markup.button.callback(' How to Forward Messages', 'forward_instructions')]
+        [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
       ])
     );
     return;
@@ -210,36 +211,42 @@ export async function checkTicketStatus(ctx, bot) {
   if (ticketInfo) {
     const statusMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      ` *Ticket #${ticketInfo.id} Status*\n\n` +
+      `🎫 *Ticket #${ticketInfo.id} Status*\n\n` +
       `*Subject:* ${ticketInfo.subject}\n` +
       `*Status:* ${ticketInfo.status}\n` +
       `*Priority:* ${ticketInfo.priority}\n` +
       `*Created:* ${new Date(ticketInfo.created_at).toLocaleString()}\n\n` +
       `Our team is working on your ticket. You'll receive updates here.`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback(' Add Information', 'add_info')],
-        [Markup.button.callback(' Check Status', 'check_status')],
-        [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
-        [Markup.button.callback('« Back to Main Menu', 'main_menu')]
-      ])
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('📝 Add Information', 'add_info')],
+          [Markup.button.callback('🔍 Check Status', 'check_status')],
+          [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
+          [Markup.button.callback('« Back to Main Menu', 'main_menu')]
+        ])
+      }
     );
     
     lastBotMessages.set(ctx.chat.id, [statusMsg.message_id]);
   } else {
     const noTicketMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      " *No Active Ticket*\n\n" +
+      "🎫 *No Active Ticket*\n\n" +
       "You don't have any active support tickets. Would you like to create one?",
-      Markup.inlineKeyboard([
-        [Markup.button.callback(' Create New Ticket', 'new_ticket')],
-        [Markup.button.callback('« Back to Main Menu', 'main_menu')]
-      ])
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('📝 Create New Ticket', 'new_ticket')],
+          [Markup.button.callback('« Back to Main Menu', 'main_menu')]
+        ])
+      }
     );
     
     lastBotMessages.set(ctx.chat.id, [noTicketMsg.message_id]);
   }
   
-  conversationStates.set(userId, { state: 'support_menu' });
+  conversationStates.set(userId, { state: MENU.SUPPORT });
 }
 
 // Handle ticket closing
@@ -255,33 +262,37 @@ export async function handleCloseTicket(ctx, bot) {
       "🟢 *Ticket Closed*\n\n" +
       "Your support ticket has been marked as resolved. " +
       "Thank you for using SEI Helpdesk! If you need further assistance, you can create a new ticket anytime.",
-      Markup.inlineKeyboard([
-        [Markup.button.callback(' Support Ticket', 'new_ticket')],
-        [Markup.button.callback(' View Active Ticket', 'view_ticket')],
-        [Markup.button.callback('❓ Help / Commands', 'help')]
-      ])
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('📝 Create Support Ticket', 'new_ticket')],
+          [Markup.button.callback('📚 Knowledge Base', 'knowledge_base')],
+          [Markup.button.callback('« Back to Main Menu', 'main_menu')]
+        ])
+      }
     );
     
     lastBotMessages.set(ctx.chat.id, [closedMsg.message_id]);
-    conversationStates.set(userId, { state: 'main_menu' });
+    conversationStates.set(userId, { state: MENU.MAIN });
   } else {
     const errorMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
       "🔴 *Error Closing Ticket*\n\n" +
       "There was an issue closing your ticket. It might be already closed or there was a system error.",
-      Markup.inlineKeyboard([
-        [Markup.button.callback(' Add Information', 'add_info')],
-        [Markup.button.callback(' Check Status', 'check_status')],
-        [Markup.button.callback('🟢 Close Ticket', 'close_ticket')],
-        [Markup.button.callback('« Back to Main Menu', 'main_menu')]
-      ])
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🔍 Check Status', 'check_status')],
+          [Markup.button.callback('« Back to Main Menu', 'main_menu')]
+        ])
+      }
     );
     
     lastBotMessages.set(ctx.chat.id, [errorMsg.message_id]);
   }
 }
 
-// handle incoming messages telegram user
+// handle incoming messages from telegram user
 export async function handleMessage(ctx, bot) {
   try {
     const msg = ctx.message;
@@ -300,12 +311,7 @@ export async function handleMessage(ctx, bot) {
       isTeamMember: isTeamMember,
       forwarder: forwarder,
       isForwarded: Boolean(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date),
-      forwardProperties: {
-        forward_from: msg.forward_from ? `${msg.forward_from.username || msg.forward_from.first_name}` : undefined,
-        forward_from_chat: msg.forward_from_chat ? `${msg.forward_from_chat.title || 'Chat'}` : undefined,
-        forward_sender_name: msg.forward_sender_name,
-        forward_date: msg.forward_date
-      }
+      messageText: msg.text ? msg.text.substring(0, 50) + (msg.text.length > 50 ? '...' : '') : '[non-text]'
     });
     
     // Check if message is forwarded - improved detection
@@ -356,7 +362,7 @@ export async function handleMessage(ctx, bot) {
       
       // Simple, intuitive prompt
       const contextPrompt = await ctx.reply(
-        `Please provide additional context if required.\n\n - Team / Project name\n - POC\n - Summary of issue`
+        `Please provide additional context if required:\n\n - Team / Project name\n - POC\n - Summary of issue`
       );
       
       // Save context prompt message ID for cleanup
@@ -366,7 +372,7 @@ export async function handleMessage(ctx, bot) {
         pendingForwards.set(userId, pendingInfo);
       }
       
-      conversationStates.set(userId, { state: 'awaiting_forward_source' });
+      conversationStates.set(userId, { state: MENU.AWAITING_FORWARD_SOURCE });
       return;
     }
     
@@ -375,7 +381,7 @@ export async function handleMessage(ctx, bot) {
       // Check if they're in a specific state first
       const userState = conversationStates.get(userId);
       
-      if (userState && userState.state === 'awaiting_forward_source') {
+      if (userState && userState.state === MENU.AWAITING_FORWARD_SOURCE) {
         if (pendingForwards.has(userId)) {
           const forwardInfo = pendingForwards.get(userId);
           
@@ -432,7 +438,7 @@ export async function handleMessage(ctx, bot) {
         await ctx.reply(
           "To forward a message from a user or group, please use the Telegram forward feature.",
           Markup.inlineKeyboard([
-            [Markup.button.callback(' How to Forward Messages', 'forward_instructions')]
+            [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
           ])
         );
       }
@@ -447,12 +453,12 @@ export async function handleMessage(ctx, bot) {
     // Handle user states for regular users
     if (userState) {
       switch (userState.state) {
-        case 'awaiting_ticket_description':
+        case MENU.AWAITING_TICKET_DESCRIPTION:
           // Creating a new ticket
           const ticketResult = await handleSupportTicket(ctx);
           if (ticketResult.status === 'choice_required') {
             conversationStates.set(userId, { 
-              state: 'awaiting_ticket_choice',
+              state: MENU.AWAITING_TICKET_CHOICE,
               message: ticketResult.message,
               severity: ticketResult.severity,
               severityTag: ticketResult.severityTag,
@@ -468,7 +474,7 @@ export async function handleMessage(ctx, bot) {
           }
           return;
           
-        case 'awaiting_ticket_update':
+        case MENU.AWAITING_TICKET_UPDATE:
           // Adding to existing ticket
           await handleSupportTicket(ctx, true);
           conversationStates.delete(userId);
@@ -479,26 +485,30 @@ export async function handleMessage(ctx, bot) {
             await showSupportMenu(ctx, bot);
           }, 1000);
           return;
+          
+        case MENU.SEARCH:
+          // search query
+          await searchKnowledgeBase(ctx, bot, originalMessage);
+          conversationStates.delete(userId);
+          return;
       }
     }
     
-    // For regular users without a specific state, treat message as a new ticket
+    // For users without existing workflow, show the main menu
     if (!isTeamMember) {
-      const ticketResult = await handleSupportTicket(ctx);
-      
-      // Show support menu after ticket creation
-      setTimeout(async () => {
-        await showSupportMenu(ctx, bot);
-      }, 1000);
+      await showMainMenu(ctx, bot);
     }
   } catch (error) {
     logger.error('Error processing message:', error);
     try {
       await ctx.reply(
         "🔴 An error occurred while processing your message. Please try again.",
-        Markup.inlineKeyboard([
-          [Markup.button.callback(' Start Over', 'main_menu')]
-        ])
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('« Start Over', 'main_menu')]
+          ])
+        }
       );
     } catch (replyError) {
       logger.error('Could not send error message:', replyError);
@@ -511,7 +521,7 @@ export async function handleTicketChoice(ctx, choice) {
   const userId = ctx.from.id;
   const userState = conversationStates.get(userId);
   
-  if (!userState || userState.state !== 'awaiting_ticket_choice') {
+  if (!userState || userState.state !== MENU.AWAITING_TICKET_CHOICE) {
     await ctx.answerCbQuery('This option is no longer valid.');
     return false;
   }
@@ -567,17 +577,23 @@ export async function handleCallbackQuery(ctx, bot) {
     // Answer callback to remove loading state
     await ctx.answerCbQuery();
     
+    // log callback being processed
+    logger.debug(`Processing callback: ${action} for user ${userId}`);
+    
     // Redirect team if trying to use ticket-related actions
-    if (isTeamMember && ['new_ticket', 'view_ticket', 'close_ticket', 'check_status', 'add_info'].includes(action)) {
+    if (isTeamMember && ['new_ticket', 'view_ticket', 'close_ticket', 'check_status', 'add_info', 'knowledge_base'].includes(action)) {
       await ctx.deleteMessage();
       await bot.telegram.sendMessage(
         ctx.chat.id,
         "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
         "If you need to create a support ticket, please use the regular support channels.",
-        Markup.inlineKeyboard([
-          [Markup.button.callback(' How to Forward Messages', 'forward_instructions')],
-          [Markup.button.callback('« Back', 'main_menu')]
-        ])
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
+            [Markup.button.callback('« Back', 'main_menu')]
+          ])
+        }
       );
       return;
     }
@@ -590,23 +606,47 @@ export async function handleCallbackQuery(ctx, bot) {
       case 'help':
         await handleHelp(ctx, bot);
         break;
+      
+      case 'knowledge_base':
+        await showKnowledgeBaseMenu(ctx, bot);
+        break;
         
-      case 'new_ticket':
-        // Regular users
-        conversationStates.set(userId, { state: 'awaiting_ticket_description' });
+      case 'search_kb':
+        // Set state to search and show search prompt
+        conversationStates.set(userId, { state: MENU.SEARCH });
         await ctx.deleteMessage();
         await bot.telegram.sendMessage(
           ctx.chat.id,
-          " *New Support Ticket*\n\n" +
+          "🔍 *Search Knowledge Base*\n\n" +
+          "Please enter your search query below. Type a few keywords related to your question.",
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('« Back to Knowledge Base', 'knowledge_base')]
+            ])
+          }
+        );
+        break;
+        
+      case 'new_ticket':
+        // Regular users
+        conversationStates.set(userId, { state: MENU.AWAITING_TICKET_DESCRIPTION });
+        await ctx.deleteMessage();
+        await bot.telegram.sendMessage(
+          ctx.chat.id,
+          "📝 *New Support Ticket*\n\n" +
           "Please describe your issue in detail. Include any relevant information such as:\n" +
           "• What you were trying to do\n" +
           "• What happened instead\n" +
           "• Any error messages\n" +
           "• Steps you've already taken\n\n" +
           "Your next message will be used to create the ticket.",
-          Markup.inlineKeyboard([
-            [Markup.button.callback('🔴 Cancel', 'cancel_ticket')]
-          ])
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('🔴 Cancel', 'cancel_ticket')]
+            ])
+          }
         );
         break;
         
@@ -636,16 +676,19 @@ export async function handleCallbackQuery(ctx, bot) {
         break;
         
       case 'add_info':
-        // Only for regular users
-        conversationStates.set(userId, { state: 'awaiting_ticket_update' });
+        // non-elevated users only
+        conversationStates.set(userId, { state: MENU.AWAITING_TICKET_UPDATE });
         await ctx.deleteMessage();
         await bot.telegram.sendMessage(
           ctx.chat.id,
-          " *Add Information to Ticket*\n\n" +
+          "📝 *Add Information to Ticket*\n\n" +
           "Please type your additional information below. This will be added to your existing ticket.",
-          Markup.inlineKeyboard([
-            [Markup.button.callback('🔴 Cancel', 'cancel_update')]
-          ])
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('🔴 Cancel', 'cancel_update')]
+            ])
+          }
         );
         break;
         
@@ -672,6 +715,14 @@ export async function handleCallbackQuery(ctx, bot) {
     }
   } catch (error) {
     logger.error('Error handling callback query:', error);
-    await ctx.reply("🔴 An error occurred processing your request. Please try again.");
+    await ctx.reply(
+      "🔴 An error occurred processing your request. Please try again.",
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Main Menu', 'main_menu')]
+        ])
+      }
+    );
   }
 }

@@ -18,6 +18,7 @@ import {
 } from './modules/state.js';
 import { sendTgAck } from './modules/slackIntegration.js';
 import { startReactionPolling, checkForReactions } from './modules/slackPolling.js';
+import { showMainMenu } from './modules/menus.js';
 import createLogger from './modules/logger.js';
 import axios from 'axios';
 
@@ -65,7 +66,7 @@ bot.command('status', ctx => {
 
 bot.command('menu', ctx => {
   logger.info('Menu command received', { userId: ctx.from?.id });
-  return handleStart(ctx, bot); // Use start handler for menu command
+  return showMainMenu(ctx, bot);
 });
 
 // Register message handler

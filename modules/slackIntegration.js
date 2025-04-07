@@ -39,23 +39,23 @@ export async function sendToSlack(bot, message, forwarder, contextInfo, messageI
   // Build Slack message with clear sections and reaction instructions
   const slackBlocks = [
     {
-      type: "section",
+      type: 'section',
       text: {
-        type: "mrkdwn",
+        type: 'mrkdwn',
         text: ` *Forwarded Message*\n\n${sourceText ? `*Source:* ${sourceText}\n` : ''}*Forwarded by:* ${forwarder}${context ? `\n*Context:*\n${context}` : ''}`
       }
     },
     {
-      type: "section",
+      type: 'section',
       text: {
-        type: "mrkdwn",
+        type: 'mrkdwn',
         text: `*Message:*\n${message}`
       }
     },
     {
-      type: "section",
+      type: 'section',
       text: {
-        type: "mrkdwn",
+        type: 'mrkdwn',
         text: `_React with :white_check_mark: or :thumbsup: to acknowledge this message (the sender will be notified)._`
       }
     }

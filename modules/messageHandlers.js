@@ -50,9 +50,9 @@ export async function handleStart(ctx, bot) {
     
     if (isTeamMember) {
       // Team member welcome
-      welcomeMessage = "👋 *Welcome to SEI Helpdesk* \n\n" +
-        "As a team member, you can forward messages from other users or groups to Slack.\n\n" + 
-        "Forward any message here and it will be relayed to Slack channel for review.";
+      welcomeMessage = '👋 *Welcome to SEI Helpdesk* \n\n' +
+        'As a team member, you can forward messages from other users or groups to Slack.\n\n' + 
+        'Forward any message here and it will be relayed to Slack channel for review.';
       
       keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
@@ -60,14 +60,14 @@ export async function handleStart(ctx, bot) {
       ]);
     } else {
       // User welcome
-      welcomeMessage = "👋 *Welcome to SEI Helpdesk* \n\n" +
-        "You can browse our Knowledge Base for self-help resources or create a support ticket.\n\n" +
-        "For the most effective support when creating a ticket:\n\n" +
-        "• Be specific about what is happening (or not happening), and in what scenario \n" +
-        "• Include any error messages\n" +
+      welcomeMessage = '👋 *Welcome to SEI Helpdesk* \n\n' +
+        'You can browse our Knowledge Base for self-help resources or create a support ticket.\n\n' +
+        'For the most effective support when creating a ticket:\n\n' +
+        '• Be specific about what is happening (or not happening), and in what scenario \n' +
+        '• Include any error messages\n' +
         "• Any solutions you've tried\n" +
-        "• Specify urgency (Low/Medium/High/Incident)\n\n" +
-        "Our team will respond as soon as possible. Thank you!";
+        '• Specify urgency (Low/Medium/High/Incident)\n\n' +
+        'Our team will respond as soon as possible. Thank you!';
       
       keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📚 Knowledge Base', 'knowledge_base')],
@@ -107,21 +107,21 @@ export async function handleHelp(ctx, bot) {
     
     if (isTeamMember) {
       // Team help
-      helpText = "❓ *SEI Helpdesk Bot Commands (Team Member)*\n\n" +
-        "/start - Start or restart the bot\n" +
-        "/help - Show this help message\n" +
-        "/menu - Show main menu\n\n" +
-        "As a team member, this bot helps you forward messages from other users/groups to Slack. " +
-        "Simply forward any message to this bot, and it will be relayed to the team Slack channel.";
+      helpText = '❓ *SEI Helpdesk Bot Commands (Team Member)*\n\n' +
+        '/start - Start or restart the bot\n' +
+        '/help - Show this help message\n' +
+        '/menu - Show main menu\n\n' +
+        'As a team member, this bot helps you forward messages from other users/groups to Slack. ' +
+        'Simply forward any message to this bot, and it will be relayed to the team Slack channel.';
     } else {
       // User help
-      helpText = "❓ *SEI Helpdesk Bot Commands*\n\n" +
-        "/start - Start or restart the bot\n" +
-        "/menu - Show main menu options\n" +
-        "/help - Show this help message\n" +
-        "/ticket - Create a new support ticket\n" +
-        "/status - Check your active ticket status\n\n" +
-        "You can also use the menu buttons below for navigation.";
+      helpText = '❓ *SEI Helpdesk Bot Commands*\n\n' +
+        '/start - Start or restart the bot\n' +
+        '/menu - Show main menu options\n' +
+        '/help - Show this help message\n' +
+        '/ticket - Create a new support ticket\n' +
+        '/status - Check your active ticket status\n\n' +
+        'You can also use the menu buttons below for navigation.';
     }
     
     await MessageManager.sendMessage(
@@ -150,8 +150,8 @@ export async function handleTicketCommand(ctx, bot) {
   // Don't show ticket creation to team members
   if (config.TEAM_MEMBERS.has(userId)) {
     await ctx.reply(
-      "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
-      "If you need to create a support ticket, please use the regular support channels.",
+      'As a team member, this bot is primarily for forwarding messages to Slack.\n\n' +
+      'If you need to create a support ticket, please use the regular support channels.',
       Markup.inlineKeyboard([
         [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
       ])
@@ -163,13 +163,13 @@ export async function handleTicketCommand(ctx, bot) {
   
   await MessageManager.sendMessage(
     ctx.chat.id,
-    "📝 *New Support Ticket*\n\n" +
-    "Please describe your issue in detail. Include any relevant information such as:\n" +
-    "• What you were trying to do\n" +
-    "• What happened instead\n" +
-    "• Any error messages\n" +
+    '📝 *New Support Ticket*\n\n' +
+    'Please describe your issue in detail. Include any relevant information such as:\n' +
+    '• What you were trying to do\n' +
+    '• What happened instead\n' +
+    '• Any error messages\n' +
     "• Steps you've already taken\n\n" +
-    "Your next message will be used to create the ticket.",
+    'Your next message will be used to create the ticket.',
     {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -190,8 +190,8 @@ export async function handleStatusCommand(ctx, bot) {
   // Don't show ticket context to team members
   if (config.TEAM_MEMBERS.has(userId)) {
     await ctx.reply(
-      "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
-      "If you need to check a support ticket status, please use the regular support channels.",
+      'As a team member, this bot is primarily for forwarding messages to Slack.\n\n' +
+      'If you need to check a support ticket status, please use the regular support channels.',
       Markup.inlineKeyboard([
         [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
       ])
@@ -247,7 +247,7 @@ export async function checkTicketStatus(ctx, bot) {
   } else {
     await MessageManager.sendMessage(
       ctx.chat.id,
-      "🎫 *No Active Ticket*\n\n" +
+      '🎫 *No Active Ticket*\n\n' +
       "You don't have any active support tickets. Would you like to create one?",
       {
         parse_mode: 'Markdown',
@@ -274,9 +274,9 @@ export async function handleCloseTicket(ctx, bot) {
   if (closed) {
     await MessageManager.sendMessage(
       ctx.chat.id,
-      "🟢 *Ticket Closed*\n\n" +
-      "Your support ticket has been marked as resolved. " +
-      "Thank you for using SEI Helpdesk! If you need further assistance, you can create a new ticket anytime.",
+      '🟢 *Ticket Closed*\n\n' +
+      'Your support ticket has been marked as resolved. ' +
+      'Thank you for using SEI Helpdesk! If you need further assistance, you can create a new ticket anytime.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -293,8 +293,8 @@ export async function handleCloseTicket(ctx, bot) {
   } else {
     await MessageManager.sendMessage(
       ctx.chat.id,
-      "🔴 *Error Closing Ticket*\n\n" +
-      "There was an issue closing your ticket. It might be already closed or there was a system error.",
+      '🔴 *Error Closing Ticket*\n\n' +
+      'There was an issue closing your ticket. It might be already closed or there was a system error.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -317,8 +317,8 @@ export async function handleReopenTicket(ctx, bot) {
   if (reopened) {
     await MessageManager.sendMessage(
       ctx.chat.id,
-      "🟢 *Ticket Reopened*\n\n" +
-      "Your support ticket has been reopened and our team will continue working on it. " +
+      '🟢 *Ticket Reopened*\n\n' +
+      'Your support ticket has been reopened and our team will continue working on it. ' +
       "You'll receive updates here.",
       {
         parse_mode: 'Markdown',
@@ -336,8 +336,8 @@ export async function handleReopenTicket(ctx, bot) {
   } else {
     await MessageManager.sendMessage(
       ctx.chat.id,
-      "🔴 *Error Reopening Ticket*\n\n" +
-      "There was an issue reopening your ticket. It might already be active or there was a system error.",
+      '🔴 *Error Reopening Ticket*\n\n' +
+      'There was an issue reopening your ticket. It might already be active or there was a system error.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -353,206 +353,49 @@ export async function handleReopenTicket(ctx, bot) {
 // handle incoming messages from telegram user
 export async function handleMessage(ctx, bot) {
   try {
-    // track user message for later cleanup
+    // Track and extract basic info
     MessageManager.trackUserMessage(ctx);
-    
     const msg = ctx.message;
     const userId = msg.from.id;
-    const forwarder = msg.from.username || msg.from.first_name;
-    const originalMessage = msg.text || '[Non-text message]';
-    const messageId = msg.message_id;
     const chatId = msg.chat.id;
-    
-    // Check if user is team member
+    const originalMessage = msg.text || '[Non-text message]';
     const isTeamMember = config.TEAM_MEMBERS.has(userId);
-    
-    // Enhanced logging
-    logger.debug('Processing message details:', {
-      userId: userId,
-      isTeamMember: isTeamMember,
-      forwarder: forwarder,
-      isForwarded: Boolean(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date),
-      messageText: msg.text ? msg.text.substring(0, 50) + (msg.text.length > 50 ? '...' : '') : '[non-text]'
-    });
-    
-    // check if user state expired
-    if (hasStateExpired(userId)) {
-      logger.info(`User ${userId} state has expired, resetting to main menu`);
-      
-      // if active ticket, highlight this with welcome message
-      const activeTicket = await getActiveTicket(userId);
-      
-      if (!isTeamMember) {
-        await MessageManager.sendMessage(
-          chatId,
-          "👋 *Welcome back to SEI Helpdesk*\n\n" +
-          (activeTicket ? 
-            `You have an active ticket (#${activeTicket.id}). You can check its status or create a new one.` : 
-            "How can we help you today?"),
-          {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('📚 Knowledge Base', 'knowledge_base')],
-              activeTicket ? 
-                [Markup.button.callback('🔍 Check Ticket Status', 'view_ticket')] : 
-                [Markup.button.callback('📝 Create Support Ticket', 'new_ticket')],
-              [Markup.button.callback('❓ Help / Commands', 'help')]
-            ])
-          },
-          bot
-        );
-        
-        updateUserState(userId, MENU.MAIN);
-        return;
-      }
-    }
-    
-    // check if message is forwarded
-    const isForwarded = Boolean(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
-    
-    // handle team-forwarded message
-    if (isTeamMember && isForwarded) {
-      // Extract basic source information for logging
-      let sourceType = "Unknown";
-      let sourceName = "";
-      let groupUrl = "";
-      
-      if (msg.forward_from_chat && msg.forward_from_chat.title) {
-        // Group or channel message
-        sourceType = msg.forward_from_chat.type === 'channel' ? "Channel" : "Group";
-        sourceName = msg.forward_from_chat.title;
-        
-        // Try to get group username/URL if available
-        if (msg.forward_from_chat.username) {
-          groupUrl = `https://t.me/${msg.forward_from_chat.username}`;
-        }
-      } else if (msg.forward_from) {
-        // normal user message
-        sourceType = msg.forward_from.is_bot ? "Bot" : "User";
-        sourceName = msg.forward_from.username ? 
-                   `@${msg.forward_from.username}` : 
-                   msg.forward_from.first_name;
-      } else if (msg.forward_sender_name) {
-        // Private user that doesn't share their info
-        sourceType = "User";
-        sourceName = msg.forward_sender_name;
-      }
-      
-      logger.info(`Detected forwarded message from ${sourceType}: ${sourceName}`);
-      
-      // store fwd msg info
-      pendingForwards.set(userId, { 
-        originalMessage, 
-        forwarder, 
-        messageId, 
-        chatId,
-        sourceInfo: {
-          type: sourceType,
-          name: sourceName,
-          url: groupUrl
-        }
-      });
-      
-      const contextPrompt = await ctx.reply(
-        `Please provide additional context if required:\n\n - Team / Project name\n - POC\n - Summary of issue`
-      );
-      
-      // save context prompt message ID for cleanup
-      const pendingInfo = pendingForwards.get(userId);
-      if (pendingInfo) {
-        pendingInfo.contextMsgId = contextPrompt.message_id;
-        pendingForwards.set(userId, pendingInfo);
-      }
-      
-      updateUserState(userId, MENU.AWAITING_FORWARD_SOURCE);
-      return;
-    }
-    
-    // handle regular text message from team member
-    if (isTeamMember && !isForwarded) {
-      // Check if they're in a specific state first
-      const userState = conversationStates.get(userId);
-      
-      if (userState && userState.state === MENU.AWAITING_FORWARD_SOURCE) {
-        if (pendingForwards.has(userId)) {
-          const forwardInfo = pendingForwards.get(userId);
-          
-          // store context as-is
-          const context = originalMessage.trim();
-          
-          // attempt deletion of context prompt message
-          try {
-            if (forwardInfo.contextMsgId) {
-              await bot.telegram.deleteMessage(chatId, forwardInfo.contextMsgId);
-            }
-          } catch (err) {
-            logger.debug('Could not delete context prompt message', err);
-          }
-          
-          // send to Slack with source info and context
-          try {
-            // create simple context object
-            const sourceText = forwardInfo.sourceInfo.url ? 
-              `${forwardInfo.sourceInfo.type}: ${forwardInfo.sourceInfo.name} (${forwardInfo.sourceInfo.url})` :
-              `${forwardInfo.sourceInfo.type}: ${forwardInfo.sourceInfo.name}`;
-              
-            const contextInfo = {
-              source: sourceText,
-              context: context
-            };
-            
-            const slackMsgTs = await sendToSlack(
-              bot,
-              forwardInfo.originalMessage, 
-              forwardInfo.forwarder,
-              contextInfo,
-              forwardInfo.messageId, 
-              chatId
-            );
-            
-            logger.info(`Message sent to Slack with timestamp ${slackMsgTs}`);
-            
-            pendingForwards.delete(userId);
-            conversationStates.delete(userId);
-          } catch (error) {
-            logger.error('Error sending to Slack:', error);
-            await ctx.reply("Error sending to Slack. Please try again.");
-          }
-        } else {
-          logger.warn(`User ${userId} in awaiting_forward_source state but no pending forward found`);
-          await ctx.reply("I couldn't find your previously forwarded message. Please try forwarding again.");
-        }
-        return;
-      } else {
-        // show team menu
-        await MessageManager.sendMessage(
-          ctx.chat.id,
-          "To forward a message from a user or group, please use the Telegram forward feature.",
-          {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]
-            ])
-          },
-          bot
-        );
-        
-        // reset user state
-        updateUserState(userId, MENU.FORWARD);
-      }
-      return;
-    }
-    
-    // handle non-elevated user interactions
+    const isForwarded = Boolean(
+      msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date
+    );
 
-    // Check user state for regular users
+    // Enhanced logging
+    logger.debug('Processing message', {
+      userId,
+      isTeamMember,
+      forwarder: msg.from.username || msg.from.first_name,
+      isForwarded,
+      messageSnippet: originalMessage.slice(0, 50) + (originalMessage.length > 50 ? '…' : '')
+    });
+
+    // 1) Handle expired user state
+    if (hasStateExpired(userId)) {
+      await resetExpiredState(userId, chatId, isTeamMember, bot);
+      return;
+    }
+
+    // 2) Team member forwarded message
+    if (isTeamMember && isForwarded) {
+      await handleTeamForward(ctx, bot, userId, originalMessage, msg);
+      return;
+    }
+
+    // 3) Team member non-forwarded message
+    if (isTeamMember && !isForwarded) {
+      await handleTeamChat(ctx, bot, userId);
+      return;
+    }
+
+    // 4) Regular user states
     const userState = conversationStates.get(userId);
-    
-    // Handle user states for regular users
     if (userState) {
       switch (userState.state) {
-        case MENU.AWAITING_TICKET_DESCRIPTION:
-          // Creating a new ticket
+        case MENU.AWAITING_TICKET_DESCRIPTION: {
           const ticketResult = await handleSupportTicket(ctx);
           if (ticketResult.status === 'choice_required') {
             updateUserState(userId, MENU.AWAITING_TICKET_CHOICE, {
@@ -562,56 +405,164 @@ export async function handleMessage(ctx, bot) {
               existingTicketId: ticketResult.existingTicketId
             });
           } else {
-            // clear state
             conversationStates.delete(userId);
-            
-            // Show support menu after ticket creation
-            setTimeout(async () => {
-              await showSupportMenu(ctx, bot);
-            }, 1000);
+            setTimeout(() => showSupportMenu(ctx, bot), 1000);
           }
           return;
-          
-        case MENU.AWAITING_TICKET_UPDATE:
-          // Adding to existing ticket
+        }
+
+        case MENU.AWAITING_TICKET_UPDATE: {
           await handleSupportTicket(ctx, true);
           conversationStates.delete(userId);
-          
-          // Show confirmation and support menu
-          await ctx.reply("🟢 Information added to your ticket!");
-          setTimeout(async () => {
-            await showSupportMenu(ctx, bot);
-          }, 1000);
+          await ctx.reply('🟢 Information added to your ticket!');
+          setTimeout(() => showSupportMenu(ctx, bot), 1000);
           return;
-          
-        case MENU.SEARCH:
-          // handle search query
+        }
+
+        case MENU.SEARCH: {
           await processKnowledgeBaseSearch(ctx, bot, originalMessage);
           conversationStates.delete(userId);
           return;
+        }
+
+        default:
+          break;
       }
     }
-    
-    // For users without existing workflow, show the main menu
+
+    // 5) Fallback: show main menu for regular users
     if (!isTeamMember) {
       await showMainMenu(ctx, bot);
     }
   } catch (error) {
     logger.error('Error processing message:', error);
     try {
-      await ctx.reply(
-        "🔴 An error occurred while processing your message. Please try again.",
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('« Start Over', 'main_menu')]
-          ])
-        }
-      );
-    } catch (replyError) {
-      logger.error('Could not send error message:', replyError);
+      await ctx.reply('🔴 An error occurred. Please try again.', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([[Markup.button.callback('« Start Over', 'main_menu')]])
+      });
+    } catch (replyErr) {
+      logger.error('Reply failed:', replyErr);
     }
   }
+}
+
+// Helper to reset expired state logic (replace or remove if you have existing)
+async function resetExpiredState(userId, chatId, isTeamMember, bot) {
+  logger.info(`User ${userId} state expired, resetting`);
+  const activeTicket = await getActiveTicket(userId);
+  if (!isTeamMember) {
+    const text = `👋 *Welcome back to SEI Helpdesk*\n\n${
+      activeTicket
+        ? `You have an active ticket (#${activeTicket.id}). You can check its status or create a new one.`
+        : 'How can we help you today?'
+    }`;
+    const buttons = [
+      [Markup.button.callback('📚 Knowledge Base', 'knowledge_base')],
+      activeTicket
+        ? [Markup.button.callback('🔍 Check Ticket Status', 'view_ticket')]
+        : [Markup.button.callback('📝 Create Support Ticket', 'new_ticket')],
+      [Markup.button.callback('❓ Help / Commands', 'help')]
+    ];
+    await MessageManager.sendMessage(chatId, text, { parse_mode: 'Markdown', ...Markup.inlineKeyboard(buttons) }, bot);
+    updateUserState(userId, MENU.MAIN);
+  }
+}
+
+// Helper to handle forwarded messages from team members
+async function handleTeamForward(ctx, bot, userId, originalMessage, msg) {
+  const { sourceInfo } = await parseForwardSource(msg);
+  pendingForwards.set(userId, {
+    originalMessage,
+    forwarder: msg.from.username || msg.from.first_name,
+    messageId: msg.message_id,
+    chatId: msg.chat.id,
+    sourceInfo
+  });
+  const prompt = await ctx.reply(
+    `Please provide additional context if required:\n\n - Team / Project name\n - POC\n - Summary of issue`
+  );
+  pendingForwards.get(userId).contextMsgId = prompt.message_id;
+  updateUserState(userId, MENU.AWAITING_FORWARD_SOURCE);
+}
+
+// Helper to handle team chats when not forwarding
+async function handleTeamChat(ctx, bot, userId) {
+  const state = conversationStates.get(userId);
+  if (state && state.state === MENU.AWAITING_FORWARD_SOURCE) {
+    await finalizeForward(ctx, bot, userId);
+  } else {
+    await MessageManager.sendMessage(
+      ctx.chat.id,
+      'To forward a message from a user or group, please use the Telegram forward feature.',
+      { parse_mode: 'Markdown', ...Markup.inlineKeyboard([[Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')]]) },
+      bot
+    );
+    updateUserState(userId, MENU.FORWARD);
+  }
+}
+
+// Helper to parse forwarded message source info
+async function parseForwardSource(msg) {
+  let sourceType = 'Unknown';
+  let sourceName = '';
+  let groupUrl = '';
+
+  if (msg.forward_from_chat && msg.forward_from_chat.title) {
+    sourceType = msg.forward_from_chat.type === 'channel' ? 'Channel' : 'Group';
+    sourceName = msg.forward_from_chat.title;
+    if (msg.forward_from_chat.username) {
+      groupUrl = `https://t.me/${msg.forward_from_chat.username}`;
+    }
+  } else if (msg.forward_from) {
+    sourceType = msg.forward_from.is_bot ? 'Bot' : 'User';
+    sourceName = msg.forward_from.username ? `@${msg.forward_from.username}` : msg.forward_from.first_name;
+  } else if (msg.forward_sender_name) {
+    sourceType = 'User';
+    sourceName = msg.forward_sender_name;
+  }
+
+  return { sourceInfo: { type: sourceType, name: sourceName, url: groupUrl } };
+}
+
+// Helper to finalize forward: get context, send to Slack, cleanup
+async function finalizeForward(ctx, bot, userId) {
+  const forwardInfo = pendingForwards.get(userId);
+  if (!forwardInfo) return;
+
+  // delete the context prompt
+  if (forwardInfo.contextMsgId) {
+    try {
+      await bot.telegram.deleteMessage(forwardInfo.chatId, forwardInfo.contextMsgId);
+    } catch (err) {
+      logger.debug('Could not delete context prompt message', err);
+    }
+  }
+
+  // send to Slack
+  const sourceText = forwardInfo.sourceInfo.url
+    ? `${forwardInfo.sourceInfo.type}: ${forwardInfo.sourceInfo.name} (${forwardInfo.sourceInfo.url})`
+    : `${forwardInfo.sourceInfo.type}: ${forwardInfo.sourceInfo.name}`;
+  const contextText = ctx.message.text.trim();
+
+  try {
+    const slackMsgTs = await sendToSlack(
+      bot,
+      forwardInfo.originalMessage,
+      forwardInfo.forwarder,
+      { source: sourceText, context: contextText },
+      forwardInfo.messageId,
+      forwardInfo.chatId
+    );
+    logger.info(`Message sent to Slack with timestamp ${slackMsgTs}`);
+  } catch (error) {
+    logger.error('Error sending to Slack:', error);
+    await ctx.reply('Error sending to Slack. Please try again.');
+  }
+
+  // cleanup
+  pendingForwards.delete(userId);
+  conversationStates.delete(userId);
 }
 
 // Helper for handling support tickets when user has choice
@@ -636,8 +587,8 @@ export async function handleTicketChoice(ctx, choice) {
       );
       
       await ctx.reply(
-        "🟢 Your message has been added to your existing support ticket.\n\n" +
-        "A team member will respond shortly."
+        '🟢 Your message has been added to your existing support ticket.\n\n' +
+        'A team member will respond shortly.'
       );
     } else {
       // Create new ticket
@@ -651,7 +602,7 @@ export async function handleTicketChoice(ctx, choice) {
       
       await ctx.reply(
         `🟢 Your new support ticket (#${ticketId}) has been created with ${userState.severity} priority.\n\n` +
-        "A team member will respond shortly."
+        'A team member will respond shortly.'
       );
     }
     
@@ -660,7 +611,7 @@ export async function handleTicketChoice(ctx, choice) {
     return true;
   } catch (error) {
     logger.error(`Error handling ticket choice: ${error}`);
-    await ctx.reply("🔴 There was an error processing your request. Please try again.");
+    await ctx.reply('🔴 There was an error processing your request. Please try again.');
     return false;
   }
 }
@@ -683,8 +634,8 @@ export async function handleCallbackQuery(ctx, bot) {
       await ctx.deleteMessage();
       await MessageManager.sendMessage(
         ctx.chat.id,
-        "As a team member, this bot is primarily for forwarding messages to Slack.\n\n" +
-        "If you need to create a support ticket, please use the regular support channels.",
+        'As a team member, this bot is primarily for forwarding messages to Slack.\n\n' +
+        'If you need to create a support ticket, please use the regular support channels.',
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
@@ -719,8 +670,8 @@ export async function handleCallbackQuery(ctx, bot) {
         await ctx.deleteMessage();
         await MessageManager.sendMessage(
           ctx.chat.id,
-          "🔍 *Search Knowledge Base*\n\n" +
-          "Please enter your search query below. Type a few keywords related to your question.",
+          '🔍 *Search Knowledge Base*\n\n' +
+          'Please enter your search query below. Type a few keywords related to your question.',
           {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
@@ -737,13 +688,13 @@ export async function handleCallbackQuery(ctx, bot) {
         await ctx.deleteMessage();
         await MessageManager.sendMessage(
           ctx.chat.id,
-          "📝 *New Support Ticket*\n\n" +
-          "Please describe your issue in detail. Include any relevant information such as:\n" +
-          "• What you were trying to do\n" +
-          "• What happened instead\n" +
-          "• Any error messages\n" +
+          '📝 *New Support Ticket*\n\n' +
+          'Please describe your issue in detail. Include any relevant information such as:\n' +
+          '• What you were trying to do\n' +
+          '• What happened instead\n' +
+          '• Any error messages\n' +
           "• Steps you've already taken\n\n" +
-          "Your next message will be used to create the ticket.",
+          'Your next message will be used to create the ticket.',
           {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
@@ -790,8 +741,8 @@ export async function handleCallbackQuery(ctx, bot) {
         await ctx.deleteMessage();
         await MessageManager.sendMessage(
           ctx.chat.id,
-          "📝 *Add Information to Ticket*\n\n" +
-          "Please type your additional information below. This will be added to your existing ticket.",
+          '📝 *Add Information to Ticket*\n\n' +
+          'Please type your additional information below. This will be added to your existing ticket.',
           {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
@@ -837,8 +788,8 @@ export async function handleCallbackQuery(ctx, bot) {
         await ctx.deleteMessage();
         await MessageManager.sendMessage(
           ctx.chat.id,
-          "🔍 *Search Knowledge Base*\n\n" +
-          "Please enter your search query below. Type a few keywords related to your question.",
+          '🔍 *Search Knowledge Base*\n\n' +
+          'Please enter your search query below. Type a few keywords related to your question.',
           {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
@@ -909,7 +860,7 @@ export async function handleCallbackQuery(ctx, bot) {
     logger.error('Error handling callback query:', error);
     await MessageManager.sendMessage(
       ctx.chat.id,
-      "🔴 An error occurred processing your request. Please try again.",
+      '🔴 An error occurred processing your request. Please try again.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([

@@ -109,7 +109,7 @@ async function startBot() {
       polling: {
         timeout: 10,
         limit: 100,
-        allowedUpdates: ['message', 'callback_query'],
+        allowedUpdates: ['message', 'callback_query']
       },
       dropPendingUpdates: true
     });

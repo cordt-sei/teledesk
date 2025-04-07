@@ -83,7 +83,7 @@ class Logger {
       
       // Output to console
       const consoleMethod = level === LOG_LEVELS.ERROR ? 'error' : 
-                           level === LOG_LEVELS.WARN ? 'warn' : 'log';
+        level === LOG_LEVELS.WARN ? 'warn' : 'log';
       console[consoleMethod](logMessage);
       
       // Write to file

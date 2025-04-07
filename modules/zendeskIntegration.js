@@ -41,15 +41,15 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
       if (ticket) {
         await addCommentToTicket(ticket.id, message, username);
         await ctx.reply(
-          "🟢 Your message has been added to your existing support ticket.\n\n" +
-          "A team member will respond shortly."
+          '🟢 Your message has been added to your existing support ticket.\n\n' +
+          'A team member will respond shortly.'
         );
       } else {
         // No active ticket found, create a new one
         const ticketId = await createZendeskTicket(message, username, userId, severity, severityTag);
         await ctx.reply(
           `🟢 We couldn't find an existing ticket, so we've created a new support ticket (#${ticketId}).\n\n` +
-          "A team member will respond shortly."
+          'A team member will respond shortly.'
         );
       }
       return { status: 'complete' };
@@ -61,7 +61,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
         // User has an existing ticket - offer options
         await ctx.reply(
           `You have an active ticket (#${existingTicket.id}): "${existingTicket.subject}"\n\n` +
-          "Is your new message related to this ticket?",
+          'Is your new message related to this ticket?',
           Markup.inlineKeyboard([
             [Markup.button.callback('🟢 Yes, add to existing ticket', 'add_to_existing')],
             [Markup.button.callback('📝 No, create a new ticket', 'create_new_ticket')]
@@ -81,7 +81,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
         const ticketId = await createZendeskTicket(message, username, userId, severity, severityTag);
         await ctx.reply(
           `🟢 Your support ticket (#${ticketId}) has been created with ${severity} priority.\n\n` +
-          "A team member will respond shortly."
+          'A team member will respond shortly.'
         );
         return { status: 'complete' };
       }
@@ -89,7 +89,7 @@ export async function handleSupportTicket(ctx, isUpdate = false, forceNew = fals
   } catch (error) {
     logger.error('Error creating support ticket:', error);
     await ctx.reply(
-      "🔴 There was an issue processing your support request. Please try again later."
+      '🔴 There was an issue processing your support request. Please try again later.'
     );
     return { status: 'error' };
   }
@@ -263,7 +263,7 @@ export async function createZendeskTicket(description, username, userId, severit
             email: `telegram.${userId}@example.com`
           },
           priority: severity ? severity.toLowerCase() : 'normal',
-          tags: ["telegram", severityTag]
+          tags: ['telegram', severityTag]
         }
       },
       {
@@ -378,7 +378,7 @@ export async function notifySlackOfNewTicket(ticketId, username, description, se
     
     // Choose emoji based on severity
     let priorityEmoji = '🟢'; // Low/Normal
-    let priorityText = severity || 'Normal';
+    const priorityText = severity || 'Normal';
     
     if (severity === 'Medium') {
       priorityEmoji = '🟠';
@@ -398,20 +398,20 @@ export async function notifySlackOfNewTicket(ticketId, username, description, se
       text: `${priorityEmoji} *New ${priorityText} Support Ticket #${ticketId}*\n\n👤 *From:* ${username}\n📝 *Message:* ${truncatedDescription}`,
       blocks: [
         {
-          type: "section",
+          type: 'section',
           text: {
-            type: "mrkdwn",
+            type: 'mrkdwn',
             text: `${priorityEmoji} *New ${priorityText} Support Ticket #${ticketId}*\n\n👤 *From:* ${username}\n📝 *Message:* ${truncatedDescription}`
           }
         },
         {
-          type: "actions",
+          type: 'actions',
           elements: [
             {
-              type: "button",
+              type: 'button',
               text: {
-                type: "plain_text",
-                text: "View in Zendesk"
+                type: 'plain_text',
+                text: 'View in Zendesk'
               },
               url: `${config.ZENDESK_API_URL.replace('/api/v2', '')}/agent/tickets/${ticketId}`
             }

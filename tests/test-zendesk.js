@@ -28,7 +28,7 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
+  cyan: '\x1b[36m'
 };
 
 // Promisify the question method
@@ -213,7 +213,7 @@ async function createTestTicket() {
             email: `telegram.${userId}@example.com`
           },
           priority: priority,
-          tags: ["telegram", severityTag, "test_ticket"]
+          tags: ['telegram', severityTag, 'test_ticket']
         }
       },
       {

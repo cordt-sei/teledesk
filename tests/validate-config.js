@@ -29,7 +29,7 @@ const colors = {
   brightBlue: '\x1b[94m',
   brightMagenta: '\x1b[95m',
   brightCyan: '\x1b[96m',
-  brightWhite: '\x1b[97m',
+  brightWhite: '\x1b[97m'
 };
 
 // Required environment variables
@@ -39,7 +39,7 @@ const requiredEnvVars = [
   { name: 'SLACK_CHANNEL_ID', description: 'Slack Channel ID for forwarding messages' },
   { name: 'ZENDESK_API_URL', description: 'Zendesk API URL' },
   { name: 'ZENDESK_EMAIL', description: 'Zendesk Email for API authentication' },
-  { name: 'ZENDESK_API_TOKEN', description: 'Zendesk API Token' },
+  { name: 'ZENDESK_API_TOKEN', description: 'Zendesk API Token' }
 ];
 
 // Optional environment variables
@@ -47,7 +47,7 @@ const optionalEnvVars = [
   { name: 'SLACK_SIGNING_SECRET', description: 'Slack Signing Secret (for webhook verification)', default: 'Not set - webhook verification disabled' },
   { name: 'DEPLOY_ENV', description: 'Deployment Environment', default: 'development' },
   { name: 'PORT', description: 'Port for webhook server', default: '3030' },
-  { name: 'LOG_LEVEL', description: 'Logging Level', default: 'INFO' },
+  { name: 'LOG_LEVEL', description: 'Logging Level', default: 'INFO' }
 ];
 
 // Validate env variables
@@ -209,10 +209,10 @@ async function validateSlackAPI() {
         text: '🧪 Configuration test - this message will be deleted',
         blocks: [
           {
-            type: "section",
+            type: 'section',
             text: {
-              type: "mrkdwn",
-              text: "🧪 *Configuration test*\nThis message will be deleted immediately."
+              type: 'mrkdwn',
+              text: '🧪 *Configuration test*\nThis message will be deleted immediately.'
             }
           }
         ]

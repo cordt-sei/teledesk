@@ -86,8 +86,8 @@ export async function showMainMenu(ctx, bot) {
   
   if (isTeamMember) {
     // Team member menu
-    menuText = "🔷 *SEI Team Menu*\n\n" +
-      "As a team member, you can forward messages from other users/groups to Slack.";
+    menuText = '🔷 *SEI Team Menu*\n\n' +
+      'As a team member, you can forward messages from other users/groups to Slack.';
     
     keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('🔄 How to Forward Messages', 'forward_instructions')],
@@ -95,8 +95,8 @@ export async function showMainMenu(ctx, bot) {
     ]);
   } else {
     // Regular user menu
-    menuText = "🔷 *SEI Support Main Menu*\n\n" +
-      "How can we help you today?";
+    menuText = '🔷 *SEI Support Main Menu*\n\n' +
+      'How can we help you today?';
     
     keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('📚 Knowledge Base', 'knowledge_base')],
@@ -131,8 +131,8 @@ export async function showKnowledgeBaseMenu(ctx, bot) {
     
     if (categories && categories.length > 0) {
       // We have categories, show dynamic menu
-      const menuText = "📚 *SEI Knowledge Base*\n\n" +
-        "Please select a category to explore, or search for specific topics:";
+      const menuText = '📚 *SEI Knowledge Base*\n\n' +
+        'Please select a category to explore, or search for specific topics:';
       
       // Create buttons for categories plus search option
       const buttons = [];
@@ -166,8 +166,8 @@ export async function showKnowledgeBaseMenu(ctx, bot) {
       });
     } else {
       // Fallback to static links if API fails or returns no categories
-      const menuText = "📚 *SEI Knowledge Base*\n\n" +
-        "Please select a topic to explore:";
+      const menuText = '📚 *SEI Knowledge Base*\n\n' +
+        'Please select a topic to explore:';
       
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.url('🧑‍💼 I am a User', 'https://sei4039.zendesk.com/hc/en-us/categories/33633312151195-I-am-a-user')],
@@ -187,8 +187,8 @@ export async function showKnowledgeBaseMenu(ctx, bot) {
     }
   } catch (error) {
     // If anything fails, fall back to static links
-    const menuText = "📚 *SEI Knowledge Base*\n\n" +
-      "Please select a topic to explore:";
+    const menuText = '📚 *SEI Knowledge Base*\n\n' +
+      'Please select a topic to explore:';
     
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.url('🧑‍💼 I am a User', 'https://sei4039.zendesk.com/hc/en-us/categories/33633312151195-I-am-a-user')],
@@ -217,7 +217,7 @@ export async function searchKnowledgeBase(ctx, bot, query) {
   try {
     // Ensure valid query
     if (!query || query.trim().length < 3) {
-      await ctx.reply("Please provide a search term of at least 3 characters.");
+      await ctx.reply('Please provide a search term of at least 3 characters.');
       return;
     }
     
@@ -234,7 +234,7 @@ export async function searchKnowledgeBase(ctx, bot, query) {
     
     if (!results || results.length === 0) {
       await ctx.reply(
-        "No articles found matching your search. Please try different keywords or create a support ticket.",
+        'No articles found matching your search. Please try different keywords or create a support ticket.',
         Markup.inlineKeyboard([
           [Markup.button.callback('📝 Create Support Ticket', 'new_ticket')],
           [Markup.button.callback('« Back to Knowledge Base', 'knowledge_base')]
@@ -245,7 +245,7 @@ export async function searchKnowledgeBase(ctx, bot, query) {
     
     // Show top 5 results
     const topResults = results.slice(0, 5);
-    let resultsMessage = "🔍 *Search Results*\n\n";
+    let resultsMessage = '🔍 *Search Results*\n\n';
     
     for (const [index, article] of topResults.entries()) {
       resultsMessage += `${index + 1}. [${article.title}](${article.html_url})\n`;
@@ -265,7 +265,7 @@ export async function searchKnowledgeBase(ctx, bot, query) {
   } catch (error) {
     logger.error('Error searching knowledge base:', error);
     await ctx.reply(
-      "Sorry, there was an error searching the knowledge base. Please try again later or create a support ticket.",
+      'Sorry, there was an error searching the knowledge base. Please try again later or create a support ticket.',
       Markup.inlineKeyboard([
         [Markup.button.callback('📝 Create Support Ticket', 'new_ticket')],
         [Markup.button.callback('« Back to Main Menu', 'main_menu')]
@@ -286,9 +286,9 @@ export async function showSupportMenu(ctx, bot) {
   const hasTicket = await getActiveTicket(userId);
   
   const menuText = hasTicket ? 
-    "🎫 *Support Ticket Options*\n\n" +
-    "You have an active support ticket. What would you like to do?" : 
-    "🎫 *Support Ticket Options*\n\n" +
+    '🎫 *Support Ticket Options*\n\n' +
+    'You have an active support ticket. What would you like to do?' : 
+    '🎫 *Support Ticket Options*\n\n' +
     "You don't have an active ticket. Would you like to create one?";
   
   const keyboard = hasTicket ? 
@@ -327,7 +327,7 @@ export async function showForwardInstructions(ctx, bot) {
   if (!isTeamMember) {
     const errorMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "This feature is only available to team members.",
+      'This feature is only available to team members.',
       mainMenuKeyboard
     );
     
@@ -338,12 +338,12 @@ export async function showForwardInstructions(ctx, bot) {
   
   const instructionsMsg = await bot.telegram.sendMessage(
     ctx.chat.id,
-    "🔄 *Forwarding Messages to Slack*\n\n" +
-    "To forward a message:\n\n" +
-    "1. In any chat, long-press on the message you want to forward\n" +
+    '🔄 *Forwarding Messages to Slack*\n\n' +
+    'To forward a message:\n\n' +
+    '1. In any chat, long-press on the message you want to forward\n' +
     "2. Tap 'Forward'\n" +
-    "3. Select this bot as the destination\n" +
-    "4. The message will be sent to the team Slack channel\n\n" +
+    '3. Select this bot as the destination\n' +
+    '4. The message will be sent to the team Slack channel\n\n' +
     "If the source isn't detected automatically, you'll be asked to provide it.",
     {
       parse_mode: 'Markdown',
@@ -369,8 +369,8 @@ export async function showSearchPrompt(ctx, bot) {
   
   const promptMsg = await bot.telegram.sendMessage(
     ctx.chat.id,
-    "🔍 *Search Knowledge Base*\n\n" +
-    "Please enter your search query below.",
+    '🔍 *Search Knowledge Base*\n\n' +
+    'Please enter your search query below.',
     {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -397,7 +397,7 @@ export async function showKnowledgeBaseCategories(ctx, bot) {
     // Show loading message
     const loadingMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📚 *Loading Knowledge Base Categories...*",
+      '📚 *Loading Knowledge Base Categories...*',
       { parse_mode: 'Markdown' }
     );
     
@@ -410,7 +410,7 @@ export async function showKnowledgeBaseCategories(ctx, bot) {
         ctx.chat.id,
         loadingMsg.message_id,
         undefined,
-        "Sorry, no knowledge base categories found. Please try again later or contact support.",
+        'Sorry, no knowledge base categories found. Please try again later or contact support.',
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
@@ -426,8 +426,8 @@ export async function showKnowledgeBaseCategories(ctx, bot) {
     }
     
     // Build categories menu
-    const menuText = "📚 *SEI Knowledge Base*\n\n" +
-      "Browse by category or search for specific topics:";
+    const menuText = '📚 *SEI Knowledge Base*\n\n' +
+      'Browse by category or search for specific topics:';
     
     // Generate keyboard with categories
     const keyboard = generateBrowsingKeyboard(categories, 'categories');
@@ -454,8 +454,8 @@ export async function showKnowledgeBaseCategories(ctx, bot) {
     
     await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📚 *Knowledge Base Error*\n\n" +
-      "Sorry, there was an error loading the knowledge base. Please try again later or contact support directly.",
+      '📚 *Knowledge Base Error*\n\n' +
+      'Sorry, there was an error loading the knowledge base. Please try again later or contact support directly.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -482,7 +482,7 @@ export async function showCategorySections(ctx, bot, categoryId) {
     // Show loading message
     const loadingMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📂 *Loading Sections...*",
+      '📂 *Loading Sections...*',
       { parse_mode: 'Markdown' }
     );
     
@@ -557,8 +557,8 @@ export async function showCategorySections(ctx, bot, categoryId) {
     
     await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📚 *Knowledge Base Error*\n\n" +
-      "Sorry, there was an error loading the sections. Please try again later or contact support directly.",
+      '📚 *Knowledge Base Error*\n\n' +
+      'Sorry, there was an error loading the sections. Please try again later or contact support directly.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -588,7 +588,7 @@ export async function showSectionArticles(ctx, bot, sectionId, sortBy = 'positio
     // Show loading message
     const loadingMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📄 *Loading Articles...*",
+      '📄 *Loading Articles...*',
       { parse_mode: 'Markdown' }
     );
     
@@ -672,8 +672,8 @@ export async function showSectionArticles(ctx, bot, sectionId, sortBy = 'positio
     
     await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📚 *Knowledge Base Error*\n\n" +
-      "Sorry, there was an error loading the articles. Please try again later or contact support directly.",
+      '📚 *Knowledge Base Error*\n\n' +
+      'Sorry, there was an error loading the articles. Please try again later or contact support directly.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -699,7 +699,7 @@ export async function showArticleDetails(ctx, bot, articleId) {
     // Show loading message
     const loadingMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📝 *Loading Article...*",
+      '📝 *Loading Article...*',
       { parse_mode: 'Markdown' }
     );
     
@@ -801,8 +801,8 @@ export async function showArticleDetails(ctx, bot, articleId) {
     
     await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📚 *Knowledge Base Error*\n\n" +
-      "Sorry, there was an error loading the article. Please try again later or contact support directly.",
+      '📚 *Knowledge Base Error*\n\n' +
+      'Sorry, there was an error loading the article. Please try again later or contact support directly.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -828,7 +828,7 @@ export async function showFullArticleInTelegram(ctx, bot, articleId) {
     // Show loading message
     const loadingMsg = await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📝 *Loading Full Article...*",
+      '📝 *Loading Full Article...*',
       { parse_mode: 'Markdown' }
     );
     
@@ -947,12 +947,12 @@ export async function showFullArticleInTelegram(ctx, bot, articleId) {
     
     await bot.telegram.sendMessage(
       ctx.chat.id,
-      "📚 *Knowledge Base Error*\n\n" +
-      "Sorry, there was an error displaying the full article. Please try viewing it on the website instead.",
+      '📚 *Knowledge Base Error*\n\n' +
+      'Sorry, there was an error displaying the full article. Please try viewing it on the website instead.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.url('🔗 View on Website', article?.html_url || `${config.ZENDESK_API_URL.replace('/api/v2', '')}/hc/articles/${articleId}`)],
+          [Markup.button.url('🔗 View on Website', `${config.ZENDESK_API_URL.replace('/api/v2', '')}/hc/articles/${articleId}`)],
           [Markup.button.callback('⬅️ Back to Categories', 'kb_categories')],
           [Markup.button.callback('« Back to Main Menu', 'main_menu')]
         ])
@@ -1141,7 +1141,7 @@ function splitLargeText(text, maxLength) {
  */
 export async function processKnowledgeBaseSearch(ctx, bot, query) {
   if (!query || query.trim().length < 3) {
-    await ctx.reply("Please provide a search term of at least 3 characters.");
+    await ctx.reply('Please provide a search term of at least 3 characters.');
     return;
   }
   
@@ -1165,7 +1165,7 @@ export async function processKnowledgeBaseSearch(ctx, bot, query) {
         loadingMsg.message_id,
         undefined,
         `🔍 *No results found for "${query}"*\n\n` +
-        "Try different keywords or create a support ticket if you need assistance.",
+        'Try different keywords or create a support ticket if you need assistance.',
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
@@ -1250,8 +1250,8 @@ export async function processKnowledgeBaseSearch(ctx, bot, query) {
     
     await bot.telegram.sendMessage(
       ctx.chat.id,
-      "🔍 *Search Error*\n\n" +
-      "Sorry, there was an error processing your search. Please try again later or contact support directly.",
+      '🔍 *Search Error*\n\n' +
+      'Sorry, there was an error processing your search. Please try again later or contact support directly.',
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([

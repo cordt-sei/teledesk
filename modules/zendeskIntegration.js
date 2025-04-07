@@ -184,6 +184,67 @@ export async function closeTicket(userId) {
   }
 }
 
+/**
+ * Reopen a closed ticket
+ * @param {number} userId - Telegram user ID
+ * @returns {Promise<boolean>} Success status
+ */
+export async function reopenTicket(userId) {
+  try {
+    // Search for the user's most recent tickets, including solved ones
+    const searchResponse = await axios.get(
+      `${config.ZENDESK_API_URL}/search.json`,
+      {
+        params: {
+          query: `requester:telegram.${userId}@example.com type:ticket status:solved`
+        },
+        auth: {
+          username: `${config.ZENDESK_EMAIL}/token`,
+          password: config.ZENDESK_API_TOKEN
+        }
+      }
+    );
+    
+    if (!searchResponse.data.results || searchResponse.data.results.length === 0) {
+      logger.info(`No closed tickets found for user ${userId}`);
+      return false;
+    }
+    
+    // Get the most recent closed ticket
+    const ticket = searchResponse.data.results[0];
+    logger.info(`Found closed ticket ${ticket.id} for user ${userId}`);
+    
+    // Reopen the ticket
+    await axios.put(
+      `${config.ZENDESK_API_URL}/tickets/${ticket.id}.json`,
+      {
+        ticket: {
+          status: 'open',
+          comment: {
+            body: 'Ticket reopened by user via Telegram bot.',
+            public: false
+          }
+        }
+      },
+      {
+        auth: {
+          username: `${config.ZENDESK_EMAIL}/token`,
+          password: config.ZENDESK_API_TOKEN
+        }
+      }
+    );
+    
+    // Update the active tickets cache
+    activeTickets.set(userId, ticket.id);
+    
+    logger.info(`Successfully reopened ticket ${ticket.id} for user ${userId}`);
+    return true;
+  } catch (error) {
+    logger.error('Error reopening ticket:', error);
+    return false;
+  }
+}
+
 // Create a new Zendesk ticket
 export async function createZendeskTicket(description, username, userId, severity = 'Normal', severityTag = 'priority_normal') {
   try {

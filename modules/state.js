@@ -14,9 +14,16 @@ const logger = createLogger('state');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const stateDir = path.join(__dirname, '..', 'data');
 const pendingAcksFile = path.join(stateDir, 'pendingAcks.json');
+const conversationStatesFile = path.join(stateDir, 'conversationStates.json');
 
 // auto-save interval for messages awaiting ack (10 seconds)
 const AUTO_SAVE_INTERVAL = 10000;
+
+// expiry timer for user state (48h in ms)
+const STATE_EXPIRY_DURATION = 48 * 60 * 60 * 1000;
+
+// max age for state data retention (14d in ms)
+const MAX_DATA_AGE = 14 * 24 * 60 * 60 * 1000;
 
 // shared maps for bot + webhook
 export const pendingSlackAcks = new Map();
@@ -71,12 +78,21 @@ export async function loadPendingAcksFromDisk() {
         // Clear and fill map
         pendingSlackAcks.clear();
         
-        // Filter out entries without required fields
+        // filter expired entries or without required fields
         let validCount = 0;
         let invalidCount = 0;
+        let expiredCount = 0;
+        const now = Date.now();
         
         for (const [key, value] of Object.entries(acks)) {
+          // confirm entry is complete
           if (value && value.telegramChatId) {
+            // check expiry (older than MAX_DATA_AGE)
+            if (value.timestamp && (now - value.timestamp > MAX_DATA_AGE)) {
+              expiredCount++;
+              continue;
+            }
+            
             pendingSlackAcks.set(key, value);
             validCount++;
           } else {
@@ -86,6 +102,10 @@ export async function loadPendingAcksFromDisk() {
         
         if (invalidCount > 0) {
           logger.warn(`Filtered out ${invalidCount} invalid entries from pendingAcks.json`);
+        }
+        
+        if (expiredCount > 0) {
+          logger.info(`Removed ${expiredCount} expired entries from pendingAcks.json`);
         }
         
         logger.info(`Loaded ${validCount} pending acks from disk`, {
@@ -105,6 +125,80 @@ export async function loadPendingAcksFromDisk() {
     }
   } catch (error) {
     logger.error('Unexpected error in loadPendingAcksFromDisk:', error);
+  }
+}
+
+// load conversation states
+export async function loadConversationStatesFromDisk() {
+  try {
+    // Ensure data directory exists
+    await fs.mkdir(stateDir, { recursive: true });
+    
+    try {
+      // ensure file exists
+      try {
+        await fs.access(conversationStatesFile);
+        logger.info('Found conversationStates state file');
+      } catch (err) {
+        await fs.writeFile(conversationStatesFile, '{}', { mode: 0o644 });
+        logger.info('Created new conversationStates state file');
+        return;
+      }
+      
+      const data = await fs.readFile(conversationStatesFile, 'utf8');
+      
+      if (!data || data.trim() === '') {
+        logger.warn('Empty conversationStates file found, initializing with empty object');
+        await fs.writeFile(conversationStatesFile, '{}', { mode: 0o644 });
+        return;
+      }
+      
+      try {
+        const states = JSON.parse(data);
+        
+        // clear and fill map
+        conversationStates.clear();
+        
+        // filter expired entries
+        let validCount = 0;
+        let expiredCount = 0;
+        const now = Date.now();
+        
+        for (const [userId, state] of Object.entries(states)) {
+          // check if state has a last activity timestamp earlier than expiry
+          if (state && state.lastActivity && (now - state.lastActivity <= STATE_EXPIRY_DURATION)) {
+            // check if data expired (older than MAX_DATA_AGE)
+            if (now - state.lastActivity > MAX_DATA_AGE) {
+              expiredCount++;
+              continue;
+            }
+            
+            conversationStates.set(parseInt(userId), state);
+            validCount++;
+          } else {
+            expiredCount++;
+          }
+        }
+        
+        if (expiredCount > 0) {
+          logger.info(`Filtered out ${expiredCount} expired conversation states`);
+        }
+        
+        logger.info(`Loaded ${validCount} conversation states from disk`);
+      } catch (parseError) {
+        logger.error('Error parsing conversationStates JSON, resetting file:', parseError);
+        await fs.writeFile(conversationStatesFile, '{}', { mode: 0o644 });
+      }
+    } catch (error) {
+      logger.error('Error loading conversation states from disk:', error);
+      try {
+        await fs.writeFile(conversationStatesFile, '{}', { mode: 0o644 });
+      } catch (writeError) {
+        logger.error('Failed to create empty conversationStates file:', writeError);
+      }
+    }
+  } catch (error) {
+    logger.error('Unexpected error in loadConversationStatesFromDisk:', error);
   }
 }
 
@@ -129,13 +223,121 @@ export async function savePendingAcksToDisk() {
   }
 }
 
-// Initialize state
+// save conversation states
+export async function saveConversationStatesToDisk() {
+  try {
+    // First update all states with lastActivity timestamp if not present
+    const now = Date.now();
+    const states = {};
+    
+    for (const [userId, state] of conversationStates.entries()) {
+      // Ensure state has lastActivity timestamp
+      if (!state.lastActivity) {
+        state.lastActivity = now;
+      }
+      
+      // convert Map key to string for JSON
+      states[userId.toString()] = state;
+    }
+    
+    // write to disk
+    await fs.writeFile(conversationStatesFile, JSON.stringify(states, null, 2), {
+      mode: 0o644,
+      flag: 'w'
+    });
+    
+    logger.debug(`Saved ${conversationStates.size} conversation states to disk`);
+  } catch (error) {
+    logger.error('Error saving conversation states to disk:', error);
+  }
+}
+
+/**
+ * Update user state with current activity timestamp
+ * @param {number} userId - User ID 
+ * @param {string} state - State name
+ * @param {Object} additionalData - Any additional state data
+ */
+export function updateUserState(userId, stateName, additionalData = {}) {
+  const existingState = conversationStates.get(userId) || {};
+  const newState = {
+    ...existingState,
+    ...additionalData,
+    state: stateName,
+    lastActivity: Date.now()
+  };
+  
+  conversationStates.set(userId, newState);
+}
+
+/**
+ * Check if user state has expired
+ * @param {number} userId - User ID 
+ * @returns {boolean} True if expired or no state exists
+ */
+export function hasStateExpired(userId) {
+  const state = conversationStates.get(userId);
+  
+  if (!state || !state.lastActivity) {
+    return true;
+  }
+  
+  const now = Date.now();
+  return (now - state.lastActivity) > STATE_EXPIRY_DURATION;
+}
+
+/**
+ * Cleanup expired states and old data
+ */
+export function cleanupExpiredStates() {
+  const now = Date.now();
+  let expiredCount = 0;
+  let oldDataCount = 0;
+  
+  // Cleanup conversation states
+  for (const [userId, state] of conversationStates.entries()) {
+    if (!state.lastActivity || (now - state.lastActivity > STATE_EXPIRY_DURATION)) {
+      conversationStates.delete(userId);
+      expiredCount++;
+    } else if (now - state.lastActivity > MAX_DATA_AGE) {
+      conversationStates.delete(userId);
+      oldDataCount++;
+    }
+  }
+  
+  // clear pending slack acks
+  for (const [key, value] of pendingSlackAcks.entries()) {
+    if (value.timestamp && (now - value.timestamp > MAX_DATA_AGE)) {
+      pendingSlackAcks.delete(key);
+      oldDataCount++;
+    }
+  }
+  
+  // log cleanup
+  if (expiredCount > 0 || oldDataCount > 0) {
+    logger.info(`Cleanup: removed ${expiredCount} expired states and ${oldDataCount} old data entries`);
+    
+    // save cleaned state
+    savePendingAcksToDisk();
+    saveConversationStatesToDisk();
+  }
+}
+
+// init state
 export function initializeState() {
   // Ensure data directory exists first
   fs.mkdir(stateDir, { recursive: true })
     .then(() => {
       logger.info('Data directory ensured');
-      return loadPendingAcksFromDisk();
+      
+      // load existing state
+      return Promise.all([
+        loadPendingAcksFromDisk(),
+        loadConversationStatesFromDisk()
+      ]);
+    })
+    .then(() => {
+      logger.info('State initialization complete');
     })
     .catch(err => {
       logger.error('Error initializing state directory:', err);
@@ -144,22 +346,36 @@ export function initializeState() {
   // Set up auto-save interval with improved error handling
   setInterval(() => {
     savePendingAcksToDisk()
-      .catch(err => logger.error('Auto-save error:', err));
+      .catch(err => logger.error('Auto-save error for pending acks:', err));
+    
+    saveConversationStatesToDisk()
+      .catch(err => logger.error('Auto-save error for conversation states:', err));
   }, AUTO_SAVE_INTERVAL);
   
-  // Extra: Check file permissions
+  // periodic state cleanup (run every hour)
+  setInterval(() => {
+    cleanupExpiredStates();
+  }, 60 * 60 * 1000);
+  
+  // check file permissions
   fs.chmod(stateDir, 0o755).catch(() => {});
 }
 
-// Save state on exit
+// save state on exit
 export function setupShutdownHandlers() {
   process.on('SIGINT', async () => {
     logger.info('Process terminating, saving state...');
-    await savePendingAcksToDisk();
+    await Promise.all([
+      savePendingAcksToDisk(),
+      saveConversationStatesToDisk()
+    ]);
   });
   
   process.on('SIGTERM', async () => {
     logger.info('Process terminating, saving state...');
-    await savePendingAcksToDisk();
+    await Promise.all([
+      savePendingAcksToDisk(),
+      saveConversationStatesToDisk()
+    ]);
   });
 }
